@@ -338,14 +338,7 @@ kbd {
 #seek::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 12px; }
 #seek::-moz-range-thumb { width: 12px; height: 12px; border: 0; }
 
-.bar-right { display: flex; align-items: center; justify-content: flex-end; gap: 10px; min-width: 0; }
-.select { display: flex; flex-direction: column; gap: 1px; font-size: 10px; color: var(--fg-3); text-transform: uppercase; letter-spacing: 0.08em; }
-.select select {
-  background: var(--card-2); border: 1px solid var(--line); border-radius: 7px; padding: 4px 6px;
-  font-size: 12px; text-transform: none; letter-spacing: 0; color: var(--fg); cursor: pointer;
-}
-.select select option { background: var(--bg-2); color: var(--fg); }
-.select.armed select { border-color: var(--warn); color: var(--warn); }
+.bar-right { display: flex; align-items: center; justify-content: flex-end; min-width: 0; }
 /* Continue-mode toggle: shows the icon for the active mode */
 .mode-btn svg { display: none; }
 .mode-btn[data-mode="next"] .ic-next, .mode-btn[data-mode="random"] .ic-random { display: block; }

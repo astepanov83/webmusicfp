@@ -13,7 +13,7 @@
     prevBtn: $('prevBtn'), nextBtn: $('nextBtn'), back10: $('back10'), fwd30: $('fwd30'), playBtn: $('playBtn'),
     tElapsed: $('tElapsed'), tRemaining: $('tRemaining'), seek: $('seek'), seekTrack: $('seekTrack'), seekBuffered: $('seekBuffered'),
     seekPlayed: $('seekPlayed'), seekThumb: $('seekThumb'), seekTip: $('seekTip'),
-    continueBtn: $('continueBtn'), sleep: $('sleep'), muteBtn: $('muteBtn'), volume: $('volume'),
+    continueBtn: $('continueBtn'), muteBtn: $('muteBtn'), volume: $('volume'),
     toast: $('toast'), audio: $('audio'),
     vizToggle: $('vizToggle'), viz: $('viz'), stage: $('stage'), bigPlay: $('bigPlay'),
   };
@@ -30,7 +30,6 @@
   let filterText = '';
   let showTotal = false;      // remaining vs total time toggle
   let seekDragging = false;
-  let sleepTimer = null, sleepAt = 0, fadeTimer = null;
   let lastSavedPos = 0;
 
   const prefs = {
@@ -430,36 +429,6 @@
     } catch { /* ignore */ }
   }
 
-  // ---------- sleep timer ----------
-  function setSleep(minutes) {
-    clearTimeout(sleepTimer); clearInterval(fadeTimer);
-    sleepTimer = null; sleepAt = 0;
-    el.sleep.parentElement.classList.toggle('armed', minutes > 0);
-    if (!minutes) return;
-    sleepAt = Date.now() + minutes * 60_000;
-    sleepTimer = setTimeout(() => {
-      const startVol = audio.volume;
-      let step = 0;
-      fadeTimer = setInterval(() => {
-        step++;
-        audio.volume = Math.max(0, startVol * (1 - step / 40));
-        if (step >= 40) {
-          clearInterval(fadeTimer);
-          audio.pause();
-          audio.volume = startVol;
-          el.sleep.value = '0';
-          setSleep(0);
-          toast('Sleep timer: paused');
-        }
-      }, 500);
-    }, Math.max(0, minutes * 60_000 - 20_000));
-  }
-  setInterval(() => {
-    if (!sleepAt) return;
-    const left = Math.max(0, Math.round((sleepAt - Date.now()) / 60_000));
-    el.sleep.title = `Sleep timer: ${left} min left`;
-  }, 15_000);
-
   // ---------- theme ----------
   function applyTheme(t) {
     if (t === 'system') document.documentElement.removeAttribute('data-theme');
@@ -798,7 +767,6 @@
     setContinueMode(continueMode === 'next' ? 'random' : 'next');
     toast(continueMode === 'random' ? 'After this: random episode' : 'After this: next episode');
   });
-  el.sleep.addEventListener('change', () => setSleep(Number(el.sleep.value)));
   el.volume.addEventListener('input', () => { if (audio.muted) audio.muted = false; applyVolume(); });
   el.muteBtn.addEventListener('click', () => { audio.muted = !audio.muted; prefs.set('muted', audio.muted); applyVolume(); });
   el.themeToggle.addEventListener('click', cycleTheme);

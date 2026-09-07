@@ -107,6 +107,10 @@
           <button class="icon-btn" id="nextBtn" title="Next track (])">
             <svg viewBox="0 0 24 24"><path d="M18 6v12" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/><path d="M5 6.5v11L14 12z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" fill="none"/></svg>
           </button>
+          <button class="icon-btn mode-btn" id="continueBtn" title="After an episode: play the next one (r)" data-mode="next">
+              <svg class="ic-next" viewBox="0 0 24 24"><path d="M3 12h13M12 7l5 5-5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M20 6v12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+              <svg class="ic-random" viewBox="0 0 24 24"><path d="M3 7h3.5c2 0 3 1 4 2.5l3 5c1 1.5 2 2.5 4 2.5H21M3 17h3.5c2 0 3-1 4-2.5M13.5 9.5c1-1.5 2-2.5 4-2.5H21" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M18.5 4.5L21 7l-2.5 2.5M18.5 14.5L21 17l-2.5 2.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+            </button>
         </div>
         <div class="seek">
           <span class="time mono" id="tElapsed">0:00</span>
@@ -122,22 +126,6 @@
       </div>
 
       <div class="bar-right">
-        <button class="icon-btn mode-btn" id="continueBtn" title="After an episode: play the next one (r)" data-mode="next">
-          <svg class="ic-next" viewBox="0 0 24 24"><path d="M3 12h13M12 7l5 5-5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M20 6v12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-          <svg class="ic-random" viewBox="0 0 24 24"><path d="M3 7h3.5c2 0 3 1 4 2.5l3 5c1 1.5 2 2.5 4 2.5H21M3 17h3.5c2 0 3-1 4-2.5M13.5 9.5c1-1.5 2-2.5 4-2.5H21" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M18.5 4.5L21 7l-2.5 2.5M18.5 14.5L21 17l-2.5 2.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
-        </button>
-        <label class="select" title="Sleep timer">
-          <span>Sleep</span>
-          <select id="sleep">
-            <option value="0">Off</option>
-            <option value="15">15 min</option>
-            <option value="30">30 min</option>
-            <option value="45">45 min</option>
-            <option value="60">1 h</option>
-            <option value="90">1.5 h</option>
-            <option value="120">2 h</option>
-          </select>
-        </label>
         <div class="volume">
           <button class="icon-btn" id="muteBtn" title="Mute (m)" aria-pressed="false">
             <svg class="ic-vol" viewBox="0 0 24 24"><path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5z" fill="currentColor"/><path d="M15.5 8.5a4.5 4.5 0 0 1 0 7M18.2 5.8a8 8 0 0 1 0 12.4" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg>
