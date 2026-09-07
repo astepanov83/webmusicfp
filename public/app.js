@@ -13,7 +13,7 @@
     prevBtn: $('prevBtn'), nextBtn: $('nextBtn'), back10: $('back10'), fwd30: $('fwd30'), playBtn: $('playBtn'),
     tElapsed: $('tElapsed'), tRemaining: $('tRemaining'), seek: $('seek'), seekTrack: $('seekTrack'), seekBuffered: $('seekBuffered'),
     seekPlayed: $('seekPlayed'), seekThumb: $('seekThumb'), seekTip: $('seekTip'),
-    continueMode: $('continueMode'), speed: $('speed'), sleep: $('sleep'), muteBtn: $('muteBtn'), volume: $('volume'),
+    continueBtn: $('continueBtn'), sleep: $('sleep'), muteBtn: $('muteBtn'), volume: $('volume'),
     toast: $('toast'), audio: $('audio'),
     vizToggle: $('vizToggle'), viz: $('viz'), stage: $('stage'), bigPlay: $('bigPlay'),
   };
@@ -360,7 +360,7 @@
     updateRowProgress(playing);
     updateDetailButtons();
     saveStateSoon(0);
-    const mode = el.continueMode.value;
+    const mode = continueMode;
     const next = mode === 'next' ? neighbour(1) : mode === 'random' ? randomSlug() : null;
     if (next) { select(next, { scroll: true }); play(next, { startAt: 0 }); }
     else updatePlayButton();
@@ -786,8 +786,18 @@
   });
   el.seekTrack.addEventListener('pointerleave', () => { if (!seekDragging) el.seekTip.hidden = true; });
 
-  el.continueMode.addEventListener('change', () => prefs.set('continue', el.continueMode.value));
-  el.speed.addEventListener('change', () => { audio.playbackRate = Number(el.speed.value); prefs.set('speed', el.speed.value); });
+  // After an episode ends: 'next' walks down the list, 'random' picks an unplayed one.
+  let continueMode = 'next';
+  function setContinueMode(mode) {
+    continueMode = mode === 'random' ? 'random' : 'next';
+    prefs.set('continue', continueMode);
+    el.continueBtn.dataset.mode = continueMode;
+    el.continueBtn.title = continueMode === 'random' ? 'After an episode: play a random one (r)' : 'After an episode: play the next one (r)';
+  }
+  el.continueBtn.addEventListener('click', () => {
+    setContinueMode(continueMode === 'next' ? 'random' : 'next');
+    toast(continueMode === 'random' ? 'After this: random episode' : 'After this: next episode');
+  });
   el.sleep.addEventListener('change', () => setSleep(Number(el.sleep.value)));
   el.volume.addEventListener('input', () => { if (audio.muted) audio.muted = false; applyVolume(); });
   el.muteBtn.addEventListener('click', () => { audio.muted = !audio.muted; prefs.set('muted', audio.muted); applyVolume(); });
@@ -836,6 +846,7 @@
     else if (k === '[') { handled(); stepTrack(-1); }
     else if (k === ']') { handled(); stepTrack(1); }
     else if (k === '/') { handled(); el.filter.focus(); el.filter.select(); }
+    else if (k === 'r') { handled(); el.continueBtn.click(); }
     else if (k === 't') { handled(); cycleTheme(); }
     else if (k === 'v') { handled(); setVizOn(!vizOn); }
     else if (k === '?') { handled(); el.help.showModal(); }
@@ -852,9 +863,7 @@
     el.volume.value = Math.round(prefs.get('volume', 0.8) * 100);
     audio.muted = prefs.get('muted', false);
     applyVolume();
-    el.speed.value = prefs.get('speed', '1');
-    audio.playbackRate = Number(el.speed.value);
-    el.continueMode.value = prefs.get('continue', 'next');
+    setContinueMode(prefs.get('continue', 'next'));
     showTotal = prefs.get('showTotal', false);
     setVizOn(vizOn);
 

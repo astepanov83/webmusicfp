@@ -91,7 +91,7 @@
       <div class="bar-center">
         <div class="transport">
           <button class="icon-btn" id="prevBtn" title="Previous track ([)">
-            <svg viewBox="0 0 24 24"><path d="M6 5v14M19 5.5v13L8.5 12z" fill="currentColor"/></svg>
+            <svg viewBox="0 0 24 24"><path d="M6 6v12" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/><path d="M19 6.5v11L10 12z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" fill="none"/></svg>
           </button>
           <button class="icon-btn" id="back10" title="Back 10 s (←)">
             <svg viewBox="0 0 24 24"><path d="M11 4.5A8 8 0 1 1 4.6 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/><path d="M4 4v5h5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/><text x="12" y="16" font-size="7" text-anchor="middle" fill="currentColor" font-weight="700">10</text></svg>
@@ -105,7 +105,7 @@
             <svg viewBox="0 0 24 24"><path d="M13 4.5A8 8 0 1 0 19.4 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/><path d="M20 4v5h-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/><text x="12" y="16" font-size="7" text-anchor="middle" fill="currentColor" font-weight="700">30</text></svg>
           </button>
           <button class="icon-btn" id="nextBtn" title="Next track (])">
-            <svg viewBox="0 0 24 24"><path d="M18 5v14M5 5.5v13L15.5 12z" fill="currentColor"/></svg>
+            <svg viewBox="0 0 24 24"><path d="M18 6v12" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/><path d="M5 6.5v11L14 12z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" fill="none"/></svg>
           </button>
         </div>
         <div class="seek">
@@ -122,23 +122,10 @@
       </div>
 
       <div class="bar-right">
-        <label class="select" title="What to do when an episode ends">
-          <span>Then</span>
-          <select id="continueMode">
-            <option value="next">Next</option>
-            <option value="random">Random</option>
-            <option value="stop">Stop</option>
-          </select>
-        </label>
-        <label class="select" title="Playback speed">
-          <span>Speed</span>
-          <select id="speed">
-            <option value="0.75">0.75x</option>
-            <option value="1" selected>1x</option>
-            <option value="1.25">1.25x</option>
-            <option value="1.5">1.5x</option>
-          </select>
-        </label>
+        <button class="icon-btn mode-btn" id="continueBtn" title="After an episode: play the next one (r)" data-mode="next">
+          <svg class="ic-next" viewBox="0 0 24 24"><path d="M3 12h13M12 7l5 5-5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M20 6v12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          <svg class="ic-random" viewBox="0 0 24 24"><path d="M3 7h3.5c2 0 3 1 4 2.5l3 5c1 1.5 2 2.5 4 2.5H21M3 17h3.5c2 0 3-1 4-2.5M13.5 9.5c1-1.5 2-2.5 4-2.5H21" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M18.5 4.5L21 7l-2.5 2.5M18.5 14.5L21 17l-2.5 2.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+        </button>
         <label class="select" title="Sleep timer">
           <span>Sleep</span>
           <select id="sleep">
@@ -175,6 +162,7 @@
       <tr><td><kbd>↑</kbd> <kbd>↓</kbd></td><td>Volume</td></tr>
       <tr><td><kbd>m</kbd></td><td>Mute</td></tr>
       <tr><td><kbd>/</kbd></td><td>Filter episodes</td></tr>
+      <tr><td><kbd>r</kbd></td><td>After an episode: next or random</td></tr>
       <tr><td><kbd>t</kbd></td><td>Theme</td></tr>
       <tr><td><kbd>v</kbd></td><td>Visualizer</td></tr>
       <tr><td><kbd>?</kbd></td><td>This help</td></tr>

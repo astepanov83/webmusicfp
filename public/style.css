@@ -346,6 +346,10 @@ kbd {
 }
 .select select option { background: var(--bg-2); color: var(--fg); }
 .select.armed select { border-color: var(--warn); color: var(--warn); }
+/* Continue-mode toggle: shows the icon for the active mode */
+.mode-btn svg { display: none; }
+.mode-btn[data-mode="next"] .ic-next, .mode-btn[data-mode="random"] .ic-random { display: block; }
+.mode-btn[data-mode="random"] { color: var(--accent); }
 .volume { display: flex; align-items: center; gap: 4px; }
 .volume input { width: 90px; }
 

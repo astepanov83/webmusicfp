@@ -86,4 +86,5 @@ quieter than a radio stream. Toggle it with the bars icon or `v`.
 | `p` `n`                 | Previous / next episode                    |
 | `↑` `↓`, `m`            | Volume, mute                               |
 | `/`                     | Filter episodes (matches tracks too)       |
+| `r`                     | After an episode: next or random           |
 | `t`, `v`, `?`           | Theme, visualizer, help                    |
