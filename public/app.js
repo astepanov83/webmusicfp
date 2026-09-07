@@ -15,6 +15,7 @@
     seekPlayed: $('seekPlayed'), seekThumb: $('seekThumb'), seekMarks: $('seekMarks'), seekTip: $('seekTip'),
     continueMode: $('continueMode'), speed: $('speed'), sleep: $('sleep'), muteBtn: $('muteBtn'), volume: $('volume'),
     toast: $('toast'), audio: $('audio'),
+    vizToggle: $('vizToggle'), viz: $('viz'), stage: $('stage'), bigPlay: $('bigPlay'),
   };
   const audio = el.audio;
   const SITE = 'https://musicforprogramming.net';
@@ -206,6 +207,7 @@
     el.dTrackCount.textContent = `(${ep.tracks.length})`;
     updateDetailButtons();
     renderTracks();
+    updateStage();
     el.detail.scrollTop = 0;
   }
 
@@ -346,6 +348,7 @@
     if (slug && slug !== playing) load(slug, opts);
     else if (slug && opts && opts.startAt != null) audio.currentTime = opts.startAt;
     if (!playing) return;
+    ensureAudioGraph();
     try {
       await audio.play();
     } catch (err) {
@@ -407,6 +410,7 @@
     el.playBtn.classList.toggle('playing', isPlaying);
     el.playBtn.setAttribute('aria-label', isPlaying ? 'Pause' : 'Play');
     el.barArt.classList.toggle('playing', isPlaying);
+    updateStage();
     const ep = bySlug.get(playing);
     if (ep) document.title = `${isPlaying ? '▶ ' : ''}${ep.number} ${ep.artist} - MFP`;
     updateDetailButtons();
@@ -562,6 +566,194 @@
     }
   }
 
+  // ---------- visualizer ----------
+  // A ring of bars around the big play button, mirrored left and right. Bands are
+  // spaced logarithmically (equal width per octave). Levels rise at once and fall
+  // slowly; peak caps hold, then drop. The dB range adapts to the material, since
+  // these mixes are far quieter than a radio stream.
+  let audioCtx = null;
+  let analyser = null;
+  let vizOn = prefs.get('viz', true);
+  const ctx2d = el.viz.getContext('2d');
+  let vizFrame = null;
+  const BANDS = 56;
+  const F_LO = 40, F_HI = 14500;
+  const RELEASE = 0.86;
+  const RANGE_DB = 42;          // bar length spans ceiling-42 dB .. ceiling
+  const CEIL_FALL = 0.03;       // dB per frame the adaptive ceiling drifts down
+  const TILT_DB = 8;
+  const PEAK_HOLD = 18, PEAK_FALL = 0.012;
+  const levels = new Float32Array(BANDS);
+  const peaks = new Float32Array(BANDS);
+  const peakHold = new Uint8Array(BANDS);
+  let ceiling = -40;
+  let bandEdges = null;
+  let colors = { c1: '', c2: '' };
+
+  function ensureAudioGraph() {
+    if (audioCtx) { if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {}); return; }
+    if (!vizOn) return;
+    try {
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) return;
+      audioCtx = new Ctx();
+      const src = audioCtx.createMediaElementSource(audio);
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 4096;
+      analyser.smoothingTimeConstant = 0.5;
+      analyser.minDecibels = -100;
+      analyser.maxDecibels = 0;
+      src.connect(analyser);
+      analyser.connect(audioCtx.destination);
+    } catch (err) {
+      console.warn('visualizer unavailable', err);
+      audioCtx = null; analyser = null;
+    }
+  }
+
+  function readColors() {
+    const css = getComputedStyle(document.documentElement);
+    colors = { c1: css.getPropertyValue('--viz').trim(), c2: css.getPropertyValue('--viz-2').trim() };
+  }
+
+  function resizeCanvas() {
+    const dpr = window.devicePixelRatio || 1;
+    const r = el.viz.getBoundingClientRect();
+    el.viz.width = Math.round(r.width * dpr);
+    el.viz.height = Math.round(r.height * dpr);
+  }
+  window.addEventListener('resize', resizeCanvas);
+
+  function computeBandEdges() {
+    const nyquist = audioCtx.sampleRate / 2;
+    const bins = analyser.frequencyBinCount;
+    const edges = new Array(BANDS + 1);
+    for (let i = 0; i <= BANDS; i++) {
+      const hz = F_LO * (F_HI / F_LO) ** (i / BANDS);
+      edges[i] = Math.min(bins - 1, Math.round((hz / nyquist) * bins));
+    }
+    return edges;
+  }
+
+  function setBass(v) { document.documentElement.style.setProperty('--bass', v.toFixed(3)); }
+
+  // The stage shows the selected episode; the ring runs only while that one plays.
+  function stageLive() { return vizOn && !!analyser && !audio.paused && playing === selected; }
+
+  function updateStage() {
+    const isPlayingThis = !!playing && !audio.paused && playing === selected;
+    el.stage.classList.toggle('playing', isPlayingThis);
+    el.bigPlay.setAttribute('aria-label', isPlayingThis ? 'Pause' : 'Play');
+    if (stageLive()) drawViz(); else clearViz();
+  }
+
+  function drawViz() {
+    cancelAnimationFrame(vizFrame);
+    if (!stageLive()) { clearViz(); return; }
+    if (!bandEdges) bandEdges = computeBandEdges();
+    readColors();
+    resizeCanvas();
+    const data = new Float32Array(analyser.frequencyBinCount);
+    const frame = () => {
+      if (!stageLive()) { clearViz(); return; }
+      vizFrame = requestAnimationFrame(frame);
+      analyser.getFloatFrequencyData(data);
+
+      let maxDb = -120;
+      const bandDb = new Float32Array(BANDS);
+      for (let i = 0; i < BANDS; i++) {
+        const from = bandEdges[i];
+        const to = Math.max(from + 1, bandEdges[i + 1]);
+        let power = 0;
+        for (let b = from; b < to; b++) power += 10 ** (data[b] / 10);
+        const db = 10 * Math.log10(power + 1e-12) + (i / BANDS) * TILT_DB;
+        bandDb[i] = db;
+        if (db > maxDb) maxDb = db;
+      }
+      // Ceiling jumps up to the loudest band and drifts down slowly, so quiet passages still move.
+      ceiling = maxDb > ceiling ? maxDb : Math.max(-80, ceiling - CEIL_FALL);
+      const lo = ceiling - RANGE_DB;
+      for (let i = 0; i < BANDS; i++) {
+        const v = Math.min(1, Math.max(0, (bandDb[i] - lo) / RANGE_DB)) ** 1.3;
+        levels[i] = v > levels[i] ? v : levels[i] * RELEASE;
+        if (levels[i] >= peaks[i]) { peaks[i] = levels[i]; peakHold[i] = PEAK_HOLD; }
+        else if (peakHold[i] > 0) peakHold[i] -= 1;
+        else peaks[i] = Math.max(levels[i], peaks[i] - PEAK_FALL);
+      }
+
+      const W = el.viz.width, H = el.viz.height;
+      const dpr = window.devicePixelRatio || 1;
+      ctx2d.clearRect(0, 0, W, H);
+      const br = el.bigPlay.getBoundingClientRect();
+      const vr = el.viz.getBoundingClientRect();
+      const cx = (br.left + br.width / 2 - vr.left) * dpr;
+      const cy = (br.top + br.height / 2 - vr.top) * dpr;
+      const inner = (br.width / 2 + 9) * dpr;
+      const maxLen = Math.min(cx, cy, W - cx, H - cy) - inner - 6 * dpr;
+      const step = Math.PI / BANDS;
+      const bw = Math.max(1.5 * dpr, inner * step * 0.62);
+
+      ctx2d.save();
+      ctx2d.translate(cx, cy);
+      ctx2d.lineCap = 'round';
+      ctx2d.lineWidth = bw;
+      for (let i = 0; i < BANDS; i++) {
+        const v = levels[i];
+        const len = Math.max(2 * dpr, v * maxLen);
+        // Bass at the bottom, treble at the top, mirrored on both sides.
+        const a = Math.PI / 2 - (i + 0.5) * step;
+        const grad = ctx2d.createLinearGradient(0, inner, 0, inner + len);
+        grad.addColorStop(0, colors.c1);
+        grad.addColorStop(1, colors.c2);
+        const cap = inner + Math.max(len, peaks[i] * maxLen) + 4 * dpr;
+        for (const side of [1, -1]) {
+          ctx2d.save();
+          ctx2d.rotate(side * a);
+          ctx2d.strokeStyle = grad;
+          ctx2d.globalAlpha = 0.4 + v * 0.6;
+          ctx2d.beginPath();
+          ctx2d.moveTo(0, inner);
+          ctx2d.lineTo(0, inner + len);
+          ctx2d.stroke();
+          ctx2d.strokeStyle = colors.c1;
+          ctx2d.globalAlpha = 0.55 + peaks[i] * 0.45;
+          ctx2d.beginPath();
+          ctx2d.moveTo(0, cap);
+          ctx2d.lineTo(0, cap + 2.5 * dpr);
+          ctx2d.stroke();
+          ctx2d.restore();
+        }
+      }
+      ctx2d.restore();
+      ctx2d.globalAlpha = 1;
+
+      let bass = 0;
+      for (let i = 0; i < 6; i++) bass += levels[i];
+      setBass(bass / 6);
+    };
+    frame();
+  }
+
+  function clearViz() {
+    cancelAnimationFrame(vizFrame);
+    vizFrame = null;
+    ctx2d.clearRect(0, 0, el.viz.width, el.viz.height);
+    levels.fill(0);
+    peaks.fill(0);
+    setBass(0);
+  }
+
+  function setVizOn(on) {
+    vizOn = on;
+    prefs.set('viz', on);
+    el.vizToggle.setAttribute('aria-pressed', String(on));
+    el.app.classList.toggle('viz-off', !on);
+    if (on && playing && !audio.paused) ensureAudioGraph();
+    updateStage();
+  }
+  el.vizToggle.addEventListener('click', () => setVizOn(!vizOn));
+  el.bigPlay.addEventListener('click', () => { if (playing === selected) togglePlay(); else play(selected); });
+
   // ---------- wiring ----------
   el.list.addEventListener('click', (e) => {
     const row = e.target.closest('.ep');
@@ -711,6 +903,7 @@
     else if (k === 'Enter') { if (playing) { handled(); markNext(); } }
     else if (k === '/') { handled(); el.filter.focus(); el.filter.select(); }
     else if (k === 't') { handled(); cycleTheme(); }
+    else if (k === 'v') { handled(); setVizOn(!vizOn); }
     else if (k === '?') { handled(); el.help.showModal(); }
     else if (/^[0-9]$/.test(k)) { handled(); seekTo(Number(k) / 10 * durationNow()); }
   });
@@ -729,6 +922,7 @@
     audio.playbackRate = Number(el.speed.value);
     el.continueMode.value = prefs.get('continue', 'next');
     showTotal = prefs.get('showTotal', false);
+    setVizOn(vizOn);
 
     try {
       const [data, st] = await Promise.all([loadCatalog(), getJSON('/api/state')]);

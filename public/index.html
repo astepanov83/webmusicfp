@@ -11,6 +11,7 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <div class="glow" aria-hidden="true"></div>
   <div class="app" id="app">
     <header class="top">
       <div class="brand">
@@ -21,6 +22,9 @@
         </div>
       </div>
       <div class="top-actions">
+        <button class="icon-btn" id="vizToggle" title="Visualizer (v)" aria-pressed="true">
+          <svg viewBox="0 0 24 24"><path d="M4 14v6M9 8v12M14 4v16M19 11v9" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" fill="none"/></svg>
+        </button>
         <button class="icon-btn" id="refreshBtn" title="Check the site for new episodes">
           <svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.7M20 4v5h-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
         </button>
@@ -49,6 +53,7 @@
       <div class="detail-body" id="detailBody" hidden>
         <button class="text-btn back-btn" id="backBtn">‹ Episodes</button>
         <div class="detail-head">
+          <div class="detail-text">
           <div class="detail-number" id="dNumber"></div>
           <h1 class="detail-title" id="dTitle"></h1>
           <div class="detail-meta" id="dMeta"></div>
@@ -60,6 +65,14 @@
             <a class="btn" id="dFile" target="_blank" rel="noopener" title="Open the mp3 file">MP3</a>
           </div>
           <div class="detail-links" id="dLinks"></div>
+          </div>
+          <section class="stage" id="stage">
+            <canvas id="viz" class="viz" aria-hidden="true"></canvas>
+            <button class="big-play" id="bigPlay" aria-label="Play">
+              <svg class="ic-play" viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z" fill="currentColor"/></svg>
+              <svg class="ic-pause" viewBox="0 0 24 24"><path d="M7 5.5h3.5v13H7zM13.5 5.5H17v13h-3.5z" fill="currentColor"/></svg>
+            </button>
+          </section>
         </div>
         <div class="tracks-head">
           <h2>Tracklist <span class="muted" id="dTrackCount"></span></h2>
@@ -168,6 +181,7 @@
       <tr><td><kbd>m</kbd></td><td>Mute</td></tr>
       <tr><td><kbd>/</kbd></td><td>Filter episodes</td></tr>
       <tr><td><kbd>t</kbd></td><td>Theme</td></tr>
+      <tr><td><kbd>v</kbd></td><td>Visualizer</td></tr>
       <tr><td><kbd>?</kbd></td><td>This help</td></tr>
     </table>
     <form method="dialog"><button class="btn">Close</button></form>

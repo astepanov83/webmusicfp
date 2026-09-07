@@ -20,6 +20,10 @@
   --buffered: rgba(255, 255, 255, 0.18);
   --thumb: #eef2ef;
   --shadow: 0 -10px 40px rgba(0, 0, 0, 0.5);
+  --viz: rgba(94, 230, 168, 0.8);
+  --viz-2: rgba(255, 255, 255, 0.3);
+  --glow-rgb: 94, 230, 168;
+  --glow: radial-gradient(50% 40% at 50% 100%, rgba(94, 230, 168, 0.16), transparent 70%);
   color-scheme: dark;
 }
 :root[data-theme="light"] {
@@ -43,6 +47,10 @@
   --buffered: rgba(0, 0, 0, 0.2);
   --thumb: #151a17;
   --shadow: 0 -10px 40px rgba(0, 0, 0, 0.12);
+  --viz: rgba(15, 157, 99, 0.75);
+  --viz-2: rgba(0, 0, 0, 0.22);
+  --glow-rgb: 15, 157, 99;
+  --glow: radial-gradient(50% 40% at 50% 100%, rgba(15, 157, 99, 0.12), transparent 70%);
   color-scheme: light;
 }
 @media (prefers-color-scheme: light) {
@@ -67,6 +75,10 @@
     --buffered: rgba(0, 0, 0, 0.2);
     --thumb: #151a17;
     --shadow: 0 -10px 40px rgba(0, 0, 0, 0.12);
+    --viz: rgba(15, 157, 99, 0.75);
+    --viz-2: rgba(0, 0, 0, 0.22);
+    --glow-rgb: 15, 157, 99;
+    --glow: radial-gradient(50% 40% at 50% 100%, rgba(15, 157, 99, 0.12), transparent 70%);
     color-scheme: light;
   }
 }
@@ -81,6 +93,13 @@ body {
   -webkit-font-smoothing: antialiased;
   overflow: hidden;
 }
+/* Page glow that breathes with the bass (--bass is 0..1, set by the visualizer). */
+.glow {
+  position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  background: var(--glow);
+  opacity: calc(0.6 + var(--bass, 0) * 1.4);
+}
+.app { position: relative; z-index: 1; }
 a { color: inherit; }
 button, select, input { font: inherit; color: inherit; }
 svg { width: 22px; height: 22px; display: block; }
@@ -198,6 +217,35 @@ kbd {
 /* Detail pane */
 .detail { overflow-y: auto; min-height: 0; padding: 22px 28px 40px; }
 .detail-empty { color: var(--fg-3); padding: 60px 0; text-align: center; }
+.detail-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 24px; align-items: start; }
+.detail-text { min-width: 0; }
+
+/* Stage: the visualizer ring around a big play button. */
+.stage {
+  position: relative; width: 232px; height: 232px; flex: none;
+  display: grid; place-items: center; border-radius: 18px; overflow: hidden;
+}
+.app.viz-off .stage { width: 120px; height: 120px; }
+.viz { position: absolute; inset: 0; width: 100%; height: 100%; }
+.big-play {
+  position: relative; width: 84px; height: 84px; border-radius: 50%; border: 0; cursor: pointer;
+  background: var(--accent); color: #0b1410; display: grid; place-items: center;
+  box-shadow:
+    0 10px calc(30px + var(--bass, 0) * 40px) rgba(var(--glow-rgb), calc(0.35 + var(--bass, 0) * 0.45)),
+    0 0 0 calc(var(--bass, 0) * 12px) rgba(var(--glow-rgb), 0.12);
+  transition: transform 0.15s, background 0.2s, opacity 0.25s;
+}
+.big-play:hover { transform: scale(1.04); background: var(--accent-2); }
+.big-play:active { transform: scale(0.97); }
+.big-play svg { width: 36px; height: 36px; }
+.big-play .ic-play { margin-left: 4px; }
+.big-play .ic-pause { display: none; }
+.stage.playing .big-play .ic-play { display: none; }
+.stage.playing .big-play .ic-pause { display: block; }
+/* While the ring is live the button steps back and returns on hover. */
+.app:not(.viz-off) .stage.playing .big-play { opacity: 0.12; }
+.app:not(.viz-off) .stage.playing:hover .big-play, .app:not(.viz-off) .stage.playing .big-play:focus-visible { opacity: 1; }
+@media (hover: none) { .stage.playing .big-play { opacity: 1 !important; } }
 .detail-number { font-family: ui-monospace, Menlo, Consolas, monospace; color: var(--accent); font-size: 12px; letter-spacing: 0.15em; text-transform: uppercase; }
 .detail-title { margin: 4px 0 6px; font-size: 30px; line-height: 1.15; font-weight: 800; letter-spacing: -0.01em; }
 .detail-meta { color: var(--fg-2); font-size: 13px; display: flex; flex-wrap: wrap; gap: 6px 14px; }
@@ -353,6 +401,8 @@ input[type="range"]:not(#seek)::-moz-range-thumb {
   .app.show-detail .detail { display: block; }
   .back-btn { display: inline-block; }
   .bar { grid-template-columns: 1fr; gap: 8px; }
+  .detail-head { grid-template-columns: 1fr; }
+  .stage { justify-self: center; }
   .bar-right { justify-content: space-between; }
 }
 

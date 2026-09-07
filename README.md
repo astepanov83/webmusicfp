@@ -65,6 +65,13 @@ or hit `enter` to stamp the next unmarked track with the current time. Marked
 tracks show their time, become clickable, appear as ticks on the seek bar, and
 the one that is playing is highlighted. `[` and `]` jump between marks.
 
+## Visualizer
+
+A ring of frequency bars around the big play button, the same idea as in
+`webplayer`. Bass is at the bottom, treble at the top, with peak caps that hold
+and fall. The level range adapts to the material, since these mixes are much
+quieter than a radio stream. Toggle it with the bars icon or `v`.
+
 ## Keyboard
 
 | Key                     | Action                                     |
@@ -79,4 +86,4 @@ the one that is playing is highlighted. `[` and `]` jump between marks.
 | `p` `n`                 | Previous / next episode                    |
 | `↑` `↓`, `m`            | Volume, mute                               |
 | `/`                     | Filter episodes (matches tracks too)       |
-| `t`, `?`                | Theme, help                                |
+| `t`, `v`, `?`           | Theme, visualizer, help                    |
