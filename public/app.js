@@ -4,7 +4,7 @@
 
   const $ = (id) => document.getElementById(id);
   const el = {
-    app: $('app'), catalogInfo: $('catalogInfo'), refreshBtn: $('refreshBtn'), themeToggle: $('themeToggle'), helpBtn: $('helpBtn'), help: $('help'),
+    app: $('app'), catalogInfo: $('catalogInfo'), themeToggle: $('themeToggle'), helpBtn: $('helpBtn'), help: $('help'),
     filter: $('filter'), filterCount: $('filterCount'), list: $('episodeList'), listEmpty: $('listEmpty'),
     detail: $('detail'), backBtn: $('backBtn'), detailEmpty: $('detailEmpty'), detailBody: $('detailBody'), dNumber: $('dNumber'), dTitle: $('dTitle'), dMeta: $('dMeta'),
     dPlay: $('dPlay'), dRestart: $('dRestart'), dFinished: $('dFinished'), dSite: $('dSite'), dFile: $('dFile'), dLinks: $('dLinks'),
@@ -64,25 +64,16 @@
     toastTimer = setTimeout(() => el.toast.classList.remove('show'), isError ? 5000 : 2500);
   }
 
-  async function getJSON(url, opts) {
-    const res = await fetch(url, opts);
-    if (!res.ok) throw new Error(`${url} answered ${res.status}`);
-    return res.json();
-  }
-
-  // ---------- server state (positions, finished) ----------
+  // ---------- playback state (last episode, positions, finished) ----------
+  // Lives in localStorage, so it belongs to this browser profile only.
   let saveTimer = null;
   function saveStateSoon(delay = 800) {
     clearTimeout(saveTimer);
     saveTimer = setTimeout(saveState, delay);
   }
-  function saveState(keepalive = false) {
+  function saveState() {
     clearTimeout(saveTimer);
-    return fetch('/api/state', {
-      method: 'PUT', keepalive,
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(state),
-    }).catch(() => {});
+    prefs.set('state', state);
   }
 
   function positionOf(slug) { return state.positions[slug] || 0; }
@@ -508,32 +499,13 @@
     el.prevBtn.disabled = el.nextBtn.disabled = !episodes.length;
   }
 
+  // episodes.json is a static file next to the page, written by scripts/refresh.js.
   async function loadCatalog() {
-    const data = await getJSON('/api/episodes');
-    setEpisodes(data.episodes);
-    if (!data.episodes.length) {
-      el.catalogInfo.textContent = data.status.refreshing ? 'Fetching episodes from the site…' : data.status.lastError ? `Cannot fetch episodes: ${data.status.lastError}` : 'No episodes cached yet';
-      if (!data.status.refreshing && !data.status.lastError) fetch('/api/refresh', { method: 'POST' }).catch(() => {});
-      setTimeout(loadCatalog, 3000);
-    }
+    const res = await fetch('episodes.json', { cache: 'no-cache' });
+    if (!res.ok) throw new Error(res.status === 404 ? 'episodes.json is missing. Run: npm run refresh' : `episodes.json answered ${res.status}`);
+    const data = await res.json();
+    setEpisodes(data.episodes || []);
     return data;
-  }
-
-  async function refresh(full = false) {
-    el.refreshBtn.classList.add('spin');
-    el.refreshBtn.disabled = true;
-    const before = episodes.length;
-    try {
-      const r = await getJSON(`/api/refresh${full ? '?full=1' : ''}`, { method: 'POST' });
-      const data = await loadCatalog();
-      const added = data.episodes.length - before;
-      toast(added > 0 ? `${added} new episode${added > 1 ? 's' : ''}` : r.failed ? `No new episodes (${r.failed} pages failed)` : 'No new episodes');
-    } catch (err) {
-      toast(`Refresh failed: ${err.message}`, true);
-    } finally {
-      el.refreshBtn.classList.remove('spin');
-      el.refreshBtn.disabled = false;
-    }
   }
 
   // ---------- visualizer ----------
@@ -821,7 +793,6 @@
   el.muteBtn.addEventListener('click', () => { audio.muted = !audio.muted; prefs.set('muted', audio.muted); applyVolume(); });
   el.themeToggle.addEventListener('click', cycleTheme);
   el.helpBtn.addEventListener('click', () => el.help.showModal());
-  el.refreshBtn.addEventListener('click', (e) => refresh(e.shiftKey));
 
   // Audio events
   audio.addEventListener('play', updatePlayButton);
@@ -872,8 +843,8 @@
   });
 
   // Save the position when the tab is hidden or closed.
-  document.addEventListener('visibilitychange', () => { if (document.hidden) { rememberPosition(true); saveState(true); } });
-  window.addEventListener('pagehide', () => { rememberPosition(true); saveState(true); });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) { rememberPosition(true); saveState(); } });
+  window.addEventListener('pagehide', () => { rememberPosition(true); saveState(); });
 
   // ---------- start ----------
   async function init() {
@@ -888,8 +859,9 @@
     setVizOn(vizOn);
 
     try {
-      const [data, st] = await Promise.all([loadCatalog(), getJSON('/api/state')]);
-      state = { lastSlug: null, positions: {}, finished: {}, ...st };
+      const data = await loadCatalog();
+      const st = prefs.get('state', {});
+      state = { lastSlug: null, positions: {}, finished: {}, ...(st && typeof st === 'object' ? st : {}) };
       renderList();
       const start = (state.lastSlug && bySlug.get(state.lastSlug)) ? state.lastSlug : data.episodes[0]?.slug;
       if (start) {
@@ -898,8 +870,8 @@
         if (state.lastSlug === start) load(start);
       }
     } catch (err) {
-      el.catalogInfo.textContent = `Cannot reach the server: ${err.message}`;
-      toast(`Cannot reach the server: ${err.message}`, true);
+      el.catalogInfo.textContent = `Cannot load episodes: ${err.message}`;
+      toast(`Cannot load episodes: ${err.message}`, true);
     }
   }
   init();

@@ -37,7 +37,7 @@ test('refresh scrapes the list and each episode, then saves to disk', async () =
   const dir = tmpDir();
   const calls = [];
   const cat = createCatalog({
-    dataDir: dir,
+    file: path.join(dir, 'episodes.json'),
     baseUrl: 'http://site.example',
     fetchImpl: fakeFetch({
       'http://site.example/latest': latestPage(['three', 'two', 'one']),
@@ -67,7 +67,7 @@ test('second refresh only fetches episodes it does not have yet', async () => {
     'http://site.example/latest': latestPage(['two', 'one']),
     'http://site.example/one': page('one', 1),
   };
-  const cat = createCatalog({ dataDir: dir, baseUrl: 'http://site.example', fetchImpl: fakeFetch(map, calls) });
+  const cat = createCatalog({ file: path.join(dir, 'episodes.json'), baseUrl: 'http://site.example', fetchImpl: fakeFetch(map, calls) });
   await cat.refresh();
   calls.length = 0;
   map['http://site.example/latest'] = latestPage(['three', 'two', 'one']);
@@ -88,7 +88,7 @@ test('second refresh only fetches episodes it does not have yet', async () => {
 test('a failing episode page is skipped and reported, the rest is kept', async () => {
   const dir = tmpDir();
   const cat = createCatalog({
-    dataDir: dir,
+    file: path.join(dir, 'episodes.json'),
     baseUrl: 'http://site.example',
     fetchImpl: fakeFetch({
       'http://site.example/latest': latestPage(['two', 'one']),
@@ -103,7 +103,7 @@ test('a failing episode page is skipped and reported, the rest is kept', async (
 test('load reads a previously saved catalog', async () => {
   const dir = tmpDir();
   fs.writeFileSync(path.join(dir, 'episodes.json'), JSON.stringify({ fetchedAt: Date.now() - 5000, episodes: [{ slug: 'one', number: 1 }] }));
-  const cat = createCatalog({ dataDir: dir, fetchImpl: async () => { throw new Error('no network'); } });
+  const cat = createCatalog({ file: path.join(dir, 'episodes.json'), fetchImpl: async () => { throw new Error('no network'); } });
   await cat.load();
   assert.equal(cat.find('one').number, 1);
   assert.ok(!cat.isStale(60_000));
@@ -112,7 +112,7 @@ test('load reads a previously saved catalog', async () => {
 
 test('refresh failure is remembered in status and thrown', async () => {
   const dir = tmpDir();
-  const cat = createCatalog({ dataDir: dir, fetchImpl: async () => { throw new Error('no network'); } });
+  const cat = createCatalog({ file: path.join(dir, 'episodes.json'), fetchImpl: async () => { throw new Error('no network'); } });
   await assert.rejects(cat.refresh(), /no network/);
   assert.equal(cat.status().lastError, 'no network');
   assert.equal(cat.status().refreshing, false);

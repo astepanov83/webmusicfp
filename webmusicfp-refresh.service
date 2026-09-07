@@ -1,0 +1,10 @@
+# Runs the scraper once. Started by webmusicfp-refresh.timer.
+[Unit]
+Description=Music For Programming episode list refresh
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=__DIR__
+ExecStart=__NODE__ scripts/refresh.js

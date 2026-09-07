@@ -16,19 +16,18 @@ dependencies and no build step. Opened as a tab in Rambox.
 
 ## Server
 
-`server.js` starts an http server. `lib/app.js` is the request handler.
+`server.js` is a static file server for `public/`. There is no API.
 
-Endpoints:
+## Scraper
 
-- `GET /` and static files from `public/`.
-- `GET /api/episodes` - the cached catalog: `{ fetchedAt, episodes: [...] }`,
-  newest first.
-- `POST /api/refresh` - re-scrape the episode list and any episodes not yet
-  cached. `?full=1` re-scrapes everything.
-- `GET /api/state` and `PUT /api/state` - player state saved in
-  `data/state.json`: last episode, playback position per episode, finished
-  episodes.
-- `GET /api/health`.
+`lib/scrape.js` has pure parsers: `parseSlugs(html)`, `parseEntry(html)`,
+`parseTracklist(text)`, `parseDuration(text)`. The `__SAPPER__` literal is
+JavaScript, not JSON, so it is evaluated inside `node:vm` with a timeout and
+only the `entry` object is kept.
+
+`lib/catalog.js` reads and writes `public/episodes.json`. `scripts/refresh.js`
+runs it from the command line and from a daily systemd timer. Episodes never
+change once published, so a refresh only fetches new slugs.
 
 Episode shape:
 
@@ -42,19 +41,6 @@ Episode shape:
   "links": ["https://www.instagram.com/corticyte/"]
 }
 ```
-
-## Scraper and cache
-
-`lib/scrape.js` has pure parsers: `parseSlugs(html)`, `parseEntry(html)`,
-`parseTracklist(text)`, `parseDuration(text)`. The `__SAPPER__` literal is
-JavaScript, not JSON, so it is evaluated inside `node:vm` with a timeout and
-only the `entry` object is kept.
-
-`lib/catalog.js` owns `data/episodes.json`. On start it loads the file and
-serves it at once. If the file is missing or older than `REFRESH_HOURS`
-(default 24) it refreshes in the background. Refresh fetches the slug list,
-then fetches missing episodes with a small concurrency limit. Episodes never
-change once published, so incremental refresh only fetches new slugs.
 
 ## Client
 
@@ -74,16 +60,16 @@ Within-episode navigation:
   tracks are spread evenly over the file. Clicking a track or pressing
   prev/next jumps between them.
 
-Persistence: position saved every few seconds and on pause to the server.
-Reopening the page restores the last episode and offers resume.
-Volume, speed and theme live in localStorage.
+Persistence: everything lives in localStorage. Position is saved every few
+seconds and on pause. Reopening the page restores the last episode and offers
+resume.
 
 Media Session API exposes title and artwork to the OS and media keys.
 
 ## Testing
 
-`node --test`. Parsers are tested against saved HTML fixtures. The app
-handler is tested with a fake fetch and a temp data folder.
+`node --test`. Parsers are tested against saved HTML fixtures, the catalog
+with a fake fetch and a temp file, the static server over http.
 
 ## Service
 

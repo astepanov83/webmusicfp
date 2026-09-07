@@ -9,10 +9,10 @@ a Rambox tab. Node only, no dependencies, no build step.
 ## Run it
 
 ```sh
+npm run refresh          # scrape the site into public/episodes.json
 npm start                # http://127.0.0.1:8421
 PORT=9000 npm start      # pick another port
 npm test
-npm run refresh          # scrape the site into data/episodes.json by hand
 ```
 
 Environment:
@@ -21,9 +21,8 @@ Environment:
 | --------------- | -------------------------------- | ---------------------------------------- |
 | `PORT`          | `8421`                           | Port to listen on                        |
 | `HOST`          | `127.0.0.1`                      | Bind address (`0.0.0.0` for LAN)         |
-| `DATA_DIR`      | `./data`                         | Where the episode cache and state live   |
-| `REFRESH_HOURS` | `24`                             | Re-check the site when the cache is older |
-| `SITE_URL`      | `https://musicforprogramming.net`| Site to scrape                           |
+| `EPISODES_FILE` | `public/episodes.json`           | Where the refresh script writes          |
+| `SITE_URL`      | `https://musicforprogramming.net`| Site the refresh script scrapes          |
 
 ## Run it as a service
 
@@ -33,29 +32,30 @@ scripts/install-service.sh 9000     # or choose one
 scripts/uninstall-service.sh
 ```
 
-The install script writes a systemd user unit to `~/.config/systemd/user/webmusicfp.service`,
-enables it and starts it. It restarts on failure and comes back after reboot.
+The install script writes two systemd user units to `~/.config/systemd/user/`:
+`webmusicfp.service` runs the static server, and `webmusicfp-refresh.timer`
+runs the scraper once a day. Both come back after reboot.
 
 ```sh
 systemctl --user status webmusicfp
-journalctl --user -u webmusicfp -f
+systemctl --user list-timers webmusicfp-refresh.timer
+journalctl --user -u webmusicfp-refresh -f
 ```
 
-## What the server does
+## How it is put together
 
-- Scrapes the site into `data/episodes.json`. Every episode page embeds a JSON-like
-  object with the mp3 url, duration, date and tracklist. The scrape takes about
-  ten seconds for all episodes. It runs on start when the cache is missing or
-  older than `REFRESH_HOURS`, then once an hour it checks the age again. The
-  refresh button in the page checks for new episodes at once (shift-click
-  re-scrapes everything).
-- Saves player state to `data/state.json`: last episode, position per episode,
-  and finished episodes.
-- `GET /api/episodes`, `GET /api/episodes/:slug`, `POST /api/refresh[?full=1]`,
-  `GET|PUT /api/state`, `GET /api/health`.
+- `public/` is the whole app: the page, `app.js`, `style.css`, and
+  `episodes.json`. Any static host can serve it.
+- `scripts/refresh.js` scrapes the site into `public/episodes.json`. Every
+  episode page embeds a JSON-like object with the mp3 url, duration, date and
+  tracklist. A full scrape takes about ten seconds. Later runs only fetch new
+  episodes.
+- `server.js` is a plain static file server for local use.
+- Playback state (last episode, position per episode, finished episodes) and
+  preferences live in the browser's `localStorage`. They belong to one browser
+  profile and are not shared between devices.
 
-Audio goes straight from the browser to the mp3 host. The server only hands out
-URLs and metadata.
+Audio goes straight from the browser to the mp3 host.
 
 ## Tracks
 
