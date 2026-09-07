@@ -88,3 +88,13 @@ quieter than a radio stream. Toggle it with the bars icon or `v`.
 | `/`                     | Filter episodes (matches tracks too)       |
 | `r`                     | After an episode: next or random           |
 | `t`, `v`, `?`           | Theme, visualizer, help                    |
+
+## Docker
+
+```sh
+./docker_build.sh                 # build and push gitea.gitpal.ru/alex/webmusicfp
+docker run -p 8421:8421 gitea.gitpal.ru/alex/webmusicfp
+```
+
+The container serves `public/` and refreshes the episode list every
+`REFRESH_HOURS` (default 24, `0` disables) in the background.
