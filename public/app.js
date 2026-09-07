@@ -96,6 +96,16 @@
     for (let i = 0; i < times.length; i++) if (times[i] <= t + 0.05) best = i;
     return best;
   }
+  // Start and end of the track playing at time t. The seek bar works inside
+  // this span, so it shows the current track, not the whole episode.
+  function trackSpan(slug, t) {
+    const ep = bySlug.get(slug);
+    const dur = (playing === slug && audio.duration) || ep?.duration || 0;
+    const times = trackTimes(slug);
+    const idx = Math.max(0, trackAt(slug, t));
+    if (!times.length) return { idx: -1, start: 0, end: dur };
+    return { idx, start: times[idx], end: idx + 1 < times.length ? times[idx + 1] : dur };
+  }
 
   function rememberPosition(force = false) {
     if (!playing || !Number.isFinite(audio.currentTime)) return;
@@ -407,21 +417,23 @@
 
   function updateTimes() {
     const ep = bySlug.get(playing);
-    const d = audio.duration || ep?.duration || 0;
     const t = currentTime();
-    el.tElapsed.textContent = fmtTime(t);
-    el.tRemaining.textContent = showTotal ? fmtTime(d) : `-${fmtTime(Math.max(0, d - t))}`;
-    const pct = d ? t / d : 0;
+    const span = ep ? trackSpan(ep.slug, t) : { start: 0, end: 0 };
+    const len = Math.max(0, span.end - span.start);
+    const inTrack = clamp(t - span.start, 0, len);
+    el.tElapsed.textContent = fmtTime(inTrack);
+    el.tRemaining.textContent = showTotal ? fmtTime(len) : `-${fmtTime(Math.max(0, len - inTrack))}`;
+    const pct = len ? inTrack / len : 0;
     if (!seekDragging) {
       el.seek.value = Math.round(pct * 1000);
       el.seekPlayed.style.width = `${pct * 100}%`;
       el.seekThumb.style.left = `${pct * 100}%`;
     }
-    // Buffered: draw the range that contains the play head.
+    // Buffered: the part of the buffered range around the play head that falls inside the track.
     let bl = 0, bw = 0;
-    for (let i = 0; i < audio.buffered.length; i++) {
-      const s = audio.buffered.start(i), e = audio.buffered.end(i);
-      if (s <= t + 1 && e >= t - 1) { bl = s / d * 100; bw = (e - s) / d * 100; break; }
+    for (let i = 0; i < audio.buffered.length && len; i++) {
+      const s = Math.max(audio.buffered.start(i), span.start), e = Math.min(audio.buffered.end(i), span.end);
+      if (s <= t + 1 && e >= t - 1 && e > s) { bl = (s - span.start) / len * 100; bw = (e - s) / len * 100; break; }
     }
     el.seekBuffered.style.left = `${bl}%`;
     el.seekBuffered.style.width = `${bw}%`;
@@ -784,34 +796,40 @@
 
   // Seek bar: drag shows the target time, release applies it.
   function seekPct() { return Number(el.seek.value) / 1000; }
-  function durationNow() { return audio.duration || bySlug.get(playing)?.duration || 0; }
+  // The span the bar is showing right now: the current track of the playing
+  // episode, or the first track of the selected one when nothing plays.
+  function barSpan() {
+    if (playing) return trackSpan(playing, currentTime());
+    const target = selected || state.lastSlug;
+    return target ? trackSpan(target, 0) : { idx: -1, start: 0, end: 0 };
+  }
   el.seek.addEventListener('pointerdown', () => { seekDragging = true; el.seekTrack.classList.add('dragging'); });
   el.seek.addEventListener('input', () => {
     seekDragging = true;
     const p = seekPct();
     el.seekPlayed.style.width = `${p * 100}%`;
     el.seekThumb.style.left = `${p * 100}%`;
-    el.tElapsed.textContent = fmtTime(p * durationNow());
+    el.tElapsed.textContent = fmtTime(p * (barSpan().end - barSpan().start));
     showTip(p);
   });
   el.seek.addEventListener('change', () => {
     seekDragging = false;
     el.seekTrack.classList.remove('dragging');
     const p = seekPct();
-    if (playing) seekTo(p * durationNow());
+    const span = barSpan();
+    const t = span.start + p * (span.end - span.start);
+    if (playing) seekTo(t);
     else {
       const target = selected || state.lastSlug;
-      if (target) play(target, { startAt: p * (bySlug.get(target)?.duration || 0) });
+      if (target) play(target, { startAt: t });
     }
   });
   function showTip(p) {
-    const d = durationNow();
-    if (!d) { el.seekTip.hidden = true; return; }
-    const t = p * d;
-    const ep = bySlug.get(playing || selected);
-    const idx = ep ? trackAt(ep.slug, t) : -1;
-    const name = idx >= 0 && ep.tracks[idx] ? ep.tracks[idx].title : '';
-    el.seekTip.innerHTML = `${fmtTime(t)}${name ? ` <small>· ${esc(name)}</small>` : ''}`;
+    const span = barSpan();
+    const len = span.end - span.start;
+    if (!len) { el.seekTip.hidden = true; return; }
+    const t = span.start + p * len;
+    el.seekTip.innerHTML = `${fmtTime(p * len)} <small>· ${fmtTime(t)} of episode</small>`;
     el.seekTip.style.left = `${p * 100}%`;
     el.seekTip.hidden = false;
   }
@@ -911,7 +929,7 @@
     else if (k === 't') { handled(); cycleTheme(); }
     else if (k === 'v') { handled(); setVizOn(!vizOn); }
     else if (k === '?') { handled(); el.help.showModal(); }
-    else if (/^[0-9]$/.test(k)) { handled(); seekTo(Number(k) / 10 * durationNow()); }
+    else if (/^[0-9]$/.test(k)) { const sp = barSpan(); handled(); seekTo(sp.start + Number(k) / 10 * (sp.end - sp.start)); }
   });
 
   // Save the position when the tab is hidden or closed.

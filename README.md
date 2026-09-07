@@ -101,7 +101,7 @@ call on its own, the app pauses it again.
 | `←` `→`                 | Back / forward 10 s                        |
 | `shift`+`←` `→`         | Back / forward 5 min                       |
 | `j` `l`                 | Back / forward 1 min                       |
-| `0` … `9`               | Jump to 0% … 90%                           |
+| `0` … `9`               | Jump to 0% … 90% of the track              |
 | `[` `]`                 | Previous / next track                      |
 | `p` `n`                 | Previous / next episode                    |
 | `↑` `↓`, `m`            | Volume, mute                               |
