@@ -32,6 +32,10 @@
   let showTotal = false;      // remaining vs total time toggle
   let seekDragging = false;
   let lastSavedPos = 0;
+  // True from the moment the app asks the element to play until the app asks
+  // it to pause. See "pauses from outside" near the audio events.
+  let wantPlay = false;
+  let playReq = 0;
 
   const prefs = {
     get(k, d) { try { const v = localStorage.getItem('mfp.' + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
@@ -299,7 +303,7 @@
     el.barArt.textContent = pad2(ep.number);
     el.barTitle.textContent = `${ep.number}: ${ep.artist}`;
     el.barSub.textContent = ep.durationText;
-    setMediaSession(ep);
+    setMediaMetadata(ep);
     updateTimes();
     updateNowTrack(true);
     updateDetailButtons();
@@ -325,11 +329,21 @@
     else if (slug && opts && opts.startAt != null) requestSeek(opts.startAt);
     if (!playing) return;
     ensureAudioGraph();
+    wantPlay = true;
+    const req = ++playReq;
     try {
       await audio.play();
     } catch (err) {
+      // A newer play() may already be in flight; only the latest one gives up.
+      if (req === playReq) wantPlay = false;
       if (err.name !== 'AbortError') toast(`Cannot play: ${err.message}`, true);
     }
+  }
+  // Every pause the app makes goes through here, so a 'pause' event that
+  // arrives while wantPlay is still true is known to come from outside.
+  function pause() {
+    wantPlay = false;
+    audio.pause();
   }
   function togglePlay() {
     if (!playing) {
@@ -337,7 +351,7 @@
       if (target) play(target);
       return;
     }
-    if (audio.paused) play(); else audio.pause();
+    if (audio.paused) play(); else pause();
   }
   function seekTo(t) {
     if (!playing) return;
@@ -419,7 +433,35 @@
   }
 
   // ---------- media session ----------
-  function setMediaSession(ep) {
+  // The lock screen and the notification are drawn by the browser from the
+  // set of actions it knows about. What the browsers do:
+  // - Chromium adds play, pause, stop, seekto, seekbackward and seekforward
+  //   on its own for any media that is not live. previoustrack and nexttrack
+  //   exist only when the page registers handlers for them.
+  // - Chrome for Android has three buttons in the small notification:
+  //   previous, play/pause, next when both track handlers exist; otherwise
+  //   the two seek buttons; otherwise play/pause alone. The expanded view
+  //   shows up to five (previous, seek back, play/pause, seek forward, next).
+  // - Android 13 and later draws the lock screen from the session state:
+  //   play/pause, previous, next. Seek has no slot there at all.
+  // - WebKit (iOS) shows the seek pair instead of previous/next when a page
+  //   registers both.
+  // So the page registers previoustrack, nexttrack, play, pause and seekto,
+  // and on purpose no seekbackward/seekforward: Chromium offers seek anyway
+  // where there is room, and WebKit then shows previous/next. Handlers are
+  // registered once, before anything plays, and persist for the life of the
+  // page. Metadata is set per episode, playbackState on every play and pause
+  // event, and the position on every timeupdate.
+  function initMediaSession() {
+    if (!('mediaSession' in navigator)) return;
+    const h = (name, fn) => { try { navigator.mediaSession.setActionHandler(name, fn); } catch { /* unsupported */ } };
+    h('play', () => play());
+    h('pause', () => pause());
+    h('previoustrack', () => stepTrack(-1));
+    h('nexttrack', () => stepTrack(1));
+    h('seekto', (e) => { if (e.seekTime != null) seekTo(e.seekTime); });
+  }
+  function setMediaMetadata(ep) {
     if (!('mediaSession' in navigator)) return;
     navigator.mediaSession.metadata = new MediaMetadata({
       title: `${ep.number}: ${ep.artist}`,
@@ -427,15 +469,12 @@
       album: 'musicforprogramming.net',
       artwork: [{ src: ART, sizes: '1024x1024', type: 'image/jpeg' }],
     });
-    const h = (name, fn) => { try { navigator.mediaSession.setActionHandler(name, fn); } catch { /* unsupported */ } };
-    h('play', () => play());
-    h('pause', () => audio.pause());
-    h('seekbackward', (e) => seekBy(-(e.seekOffset || 10)));
-    h('seekforward', (e) => seekBy(e.seekOffset || 10));
-    h('previoustrack', () => stepTrack(-1));
-    h('nexttrack', () => stepTrack(1));
-    h('seekto', (e) => { if (e.seekTime != null) seekTo(e.seekTime); });
   }
+  function setPlaybackState(s) {
+    if (!('mediaSession' in navigator)) return;
+    try { navigator.mediaSession.playbackState = s; } catch { /* ignore */ }
+  }
+  // Chrome needs a finite duration here; before metadata arrives there is none.
   function updatePositionState() {
     if (!('mediaSession' in navigator) || !navigator.mediaSession.setPositionState) return;
     if (!Number.isFinite(audio.duration)) return;
@@ -516,6 +555,8 @@
   let bandEdges = null;
   let colors = { c1: '', c2: '' };
 
+  // Only called on a user path (play from a click, key or media session action,
+  // or the visualizer toggle), so the resume() here is never automatic.
   function ensureAudioGraph() {
     if (audioCtx) { if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {}); return; }
     if (!vizOn) return;
@@ -531,6 +572,15 @@
       analyser.maxDecibels = 0;
       src.connect(analyser);
       analyser.connect(audioCtx.destination);
+      if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+      // The element's sound goes through this graph. When the system stops the
+      // graph ('interrupted' on iOS during a call, 'suspended' elsewhere) the
+      // element would keep "playing" into silence. Pause it so the page and
+      // the media session tell the truth; the user resumes.
+      audioCtx.onstatechange = () => {
+        const st = audioCtx.state;
+        if ((st === 'interrupted' || st === 'suspended') && !audio.paused) pause();
+      };
     } catch (err) {
       console.warn('visualizer unavailable', err);
       audioCtx = null; analyser = null;
@@ -789,17 +839,42 @@
   el.themeToggle.addEventListener('click', cycleTheme);
   el.helpBtn.addEventListener('click', () => el.help.showModal());
 
-  // Audio events
-  audio.addEventListener('play', updatePlayButton);
-  audio.addEventListener('pause', () => { updatePlayButton(); rememberPosition(true); el.playBtn.classList.remove('loading'); });
+  // ---------- pauses from outside ----------
+  // On a phone call Android takes audio focus. Chrome then pauses the audio
+  // element itself: the page sees a 'pause' event, the media session 'pause'
+  // handler is not called. When the call ends Chrome starts the element again
+  // the same way: a 'play' event with no user action. Only media elements take
+  // part in audio focus; a Web Audio graph does not, so sound stops because
+  // the element that feeds the graph stops.
+  // What the app guarantees:
+  // - It never calls audio.play() or audioCtx.resume() on its own. Every call
+  //   comes from a click, a key, a media session action, or the deliberate
+  //   move to the next episode when one ends (onEnded).
+  // - A pause that did not come from the app stays a pause. If the browser
+  //   starts the element again afterwards, the app pauses it at once. The
+  //   user, or the play button on the lock screen, resumes.
+  // - If the AudioContext is interrupted or suspended while the element plays,
+  //   the element is paused too (see ensureAudioGraph).
+  audio.addEventListener('play', () => {
+    if (!wantPlay) { audio.pause(); return; }
+    setPlaybackState('playing');
+    updatePlayButton();
+  });
+  audio.addEventListener('pause', () => {
+    wantPlay = false;
+    setPlaybackState('paused');
+    updatePlayButton();
+    rememberPosition(true);
+    el.playBtn.classList.remove('loading');
+  });
   audio.addEventListener('playing', () => { el.playBtn.classList.remove('loading'); updatePlayButton(); });
   audio.addEventListener('waiting', () => el.playBtn.classList.add('loading'));
   audio.addEventListener('loadstart', () => { if (!audio.paused) el.playBtn.classList.add('loading'); });
   audio.addEventListener('canplay', () => el.playBtn.classList.remove('loading'));
   audio.addEventListener('timeupdate', () => { updateTimes(); updateNowTrack(); rememberPosition(); updateRowProgress(playing); updatePositionState(); });
-  audio.addEventListener('durationchange', updateTimes);
+  audio.addEventListener('durationchange', () => { updateTimes(); updatePositionState(); });
   audio.addEventListener('progress', updateTimes);
-  audio.addEventListener('seeked', () => { updateTimes(); updateNowTrack(true); rememberPosition(true); });
+  audio.addEventListener('seeked', () => { updateTimes(); updateNowTrack(true); rememberPosition(true); updatePositionState(); });
   audio.addEventListener('ratechange', updatePositionState);
   audio.addEventListener('ended', onEnded);
   audio.addEventListener('error', () => {
@@ -844,6 +919,7 @@
 
   // ---------- start ----------
   async function init() {
+    initMediaSession();
     applyTheme(prefs.get('theme', 'dark'));
     el.volume.value = Math.round(prefs.get('volume', 0.8) * 100);
     audio.muted = prefs.get('muted', false);

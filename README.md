@@ -79,6 +79,20 @@ A ring of frequency bars around the big play button, the same idea as in
 and fall. The level range adapts to the material, since these mixes are much
 quieter than a radio stream. Toggle it with the bars icon or `v`.
 
+## Lock screen and phone calls
+
+The page registers media session handlers for previous track, play, pause,
+next track and seek-to, once at startup. It does not register seek backward
+and seek forward on purpose: Chromium adds those by itself where there is
+room, and WebKit (iOS) would show them instead of previous/next. Chrome for
+Android shows previous, play/pause and next in the small notification and on
+the lock screen; the expanded notification also has the two 10 s seek buttons.
+
+The app never starts playback by itself. When the system pauses the player
+(a phone call takes audio focus), it stays paused until you press play, on
+the page or on the lock screen. If the browser restarts the player after the
+call on its own, the app pauses it again.
+
 ## Keyboard
 
 | Key                     | Action                                     |
