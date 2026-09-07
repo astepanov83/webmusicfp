@@ -10,14 +10,12 @@ test('sanitizeState keeps known fields and drops junk', () => {
     lastSlug: 'seven',
     positions: { seven: 12.7, 'bad slug!': 3, one: -1, two: 'x' },
     finished: { one: true, two: false, 'x y': true },
-    marks: { seven: { 0: 0, 3: 601.26, x: 5 }, bad: {} },
     extra: 'nope',
   });
   assert.deepEqual(s, {
     lastSlug: 'seven',
     positions: { seven: 13 },
     finished: { one: true },
-    marks: { seven: { 0: 0, 3: 601.3 } },
     updatedAt: 0,
   });
   assert.equal(sanitizeState(null).lastSlug, null);

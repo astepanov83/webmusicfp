@@ -1,7 +1,7 @@
 # webmusicfp
 
 A local web player for [musicforprogramming.net](https://musicforprogramming.net).
-Episode list, tracklists, resume, track marks, keyboard control. Built to live in
+Episode list, tracklists, resume, keyboard control. Built to live in
 a Rambox tab. Node only, no dependencies, no build step.
 
 ![player](docs/screenshot.png)
@@ -50,7 +50,7 @@ journalctl --user -u webmusicfp -f
   refresh button in the page checks for new episodes at once (shift-click
   re-scrapes everything).
 - Saves player state to `data/state.json`: last episode, position per episode,
-  finished episodes, and track marks.
+  and finished episodes.
 - `GET /api/episodes`, `GET /api/episodes/:slug`, `POST /api/refresh[?full=1]`,
   `GET|PUT /api/state`, `GET /api/health`.
 
@@ -63,12 +63,8 @@ The tracklist works like a playlist: click a track to jump to it, and the
 prev/next buttons (or `[` and `]`) step through tracks. After the last track
 the player rolls into the next episode.
 
-The site does not publish timestamps, so the player estimates them: track 1
-starts at 0:00, the end of the file is the last anchor, and tracks in between
-are spread evenly. Estimated times show with a `~`. To make them exact, press
-`mark` on a track when it starts, or hit `enter` to stamp the next unmarked
-track with the current time. Each mark sharpens the estimates around it.
-Marked tracks appear as ticks on the seek bar.
+The site does not publish timestamps, so track times are approximate: the
+tracks are spread evenly over the file.
 
 ## Visualizer
 
@@ -87,7 +83,6 @@ quieter than a radio stream. Toggle it with the bars icon or `v`.
 | `j` `l`                 | Back / forward 1 min                       |
 | `0` … `9`               | Jump to 0% … 90%                           |
 | `[` `]`                 | Previous / next track                      |
-| `enter`                 | Mark the next unmarked track at this time  |
 | `p` `n`                 | Previous / next episode                    |
 | `↑` `↓`, `m`            | Volume, mute                               |
 | `/`                     | Filter episodes (matches tracks too)       |

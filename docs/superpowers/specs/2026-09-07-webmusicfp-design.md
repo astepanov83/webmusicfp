@@ -27,7 +27,7 @@ Endpoints:
   cached. `?full=1` re-scrapes everything.
 - `GET /api/state` and `PUT /api/state` - player state saved in
   `data/state.json`: last episode, playback position per episode, finished
-  episodes, and track start marks per episode.
+  episodes.
 - `GET /api/health`.
 
 Episode shape:
@@ -70,10 +70,9 @@ Plain HTML, CSS and JS in `public/`. Layout:
 Within-episode navigation:
 
 - Seek bar, arrow key seeking, and number keys 0-9 jump to 0%-90%.
-- Track marks. Each track row has a "mark" button that stores the current
-  time as that track's start. Marked tracks show their time and become
-  clickable to jump. The track whose mark is the last one before the
-  current time is highlighted as "now playing".
+- Track positions are approximate. The site publishes no timestamps, so the
+  tracks are spread evenly over the file. Clicking a track or pressing
+  prev/next jumps between them.
 
 Persistence: position saved every few seconds and on pause to the server.
 Reopening the page restores the last episode and offers resume.

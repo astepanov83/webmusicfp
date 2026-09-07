@@ -12,7 +12,7 @@
     barArt: $('barArt'), barTitle: $('barTitle'), barSub: $('barSub'),
     prevBtn: $('prevBtn'), nextBtn: $('nextBtn'), back10: $('back10'), fwd30: $('fwd30'), playBtn: $('playBtn'),
     tElapsed: $('tElapsed'), tRemaining: $('tRemaining'), seek: $('seek'), seekTrack: $('seekTrack'), seekBuffered: $('seekBuffered'),
-    seekPlayed: $('seekPlayed'), seekThumb: $('seekThumb'), seekMarks: $('seekMarks'), seekTip: $('seekTip'),
+    seekPlayed: $('seekPlayed'), seekThumb: $('seekThumb'), seekTip: $('seekTip'),
     continueMode: $('continueMode'), speed: $('speed'), sleep: $('sleep'), muteBtn: $('muteBtn'), volume: $('volume'),
     toast: $('toast'), audio: $('audio'),
     vizToggle: $('vizToggle'), viz: $('viz'), stage: $('stage'), bigPlay: $('bigPlay'),
@@ -24,7 +24,7 @@
   // ---------- state ----------
   let episodes = [];          // newest first
   let bySlug = new Map();
-  let state = { lastSlug: null, positions: {}, finished: {}, marks: {} };
+  let state = { lastSlug: null, positions: {}, finished: {} };
   let selected = null;        // slug shown in the detail pane
   let playing = null;         // slug loaded in the audio element
   let filterText = '';
@@ -70,7 +70,7 @@
     return res.json();
   }
 
-  // ---------- server state (positions, marks, finished) ----------
+  // ---------- server state (positions, finished) ----------
   let saveTimer = null;
   function saveStateSoon(delay = 800) {
     clearTimeout(saveTimer);
@@ -87,36 +87,18 @@
 
   function positionOf(slug) { return state.positions[slug] || 0; }
   function isFinished(slug) { return !!state.finished[slug]; }
-  // A start time for every track. Anchors are: track 1 at 0:00, the user's marks,
-  // and the end of the file. Tracks between anchors are spread evenly and flagged
-  // as estimates. Each mark the user adds sharpens its neighbours.
+  // The site publishes no timestamps, so tracks are spread evenly over the file.
   function trackTimes(slug) {
     const ep = bySlug.get(slug);
     if (!ep) return [];
     const n = ep.tracks.length;
-    const user = state.marks[slug] || {};
     const dur = (playing === slug && audio.duration) || ep.duration || 0;
-    const anchors = [{ i: 0, t: user[0] ?? 0 }];
-    for (const [k, v] of Object.entries(user)) {
-      const i = Number(k);
-      if (i > 0 && i < n) anchors.push({ i, t: v });
-    }
-    anchors.sort((a, b) => a.i - b.i);
-    anchors.push({ i: n, t: dur });
-    const out = new Array(n);
-    for (let a = 0; a < anchors.length - 1; a++) {
-      const A = anchors[a], B = anchors[a + 1];
-      const span = B.i - A.i;
-      for (let i = A.i; i < B.i; i++) {
-        out[i] = { time: Math.max(A.t, A.t + (B.t - A.t) * (i - A.i) / span), estimated: i !== A.i };
-      }
-    }
-    return out;
+    return Array.from({ length: n }, (_, i) => (dur * i) / n);
   }
   function trackAt(slug, t) {
     const times = trackTimes(slug);
     let best = -1;
-    for (let i = 0; i < times.length; i++) if (times[i].time <= t + 0.05) best = i;
+    for (let i = 0; i < times.length; i++) if (times[i] <= t + 0.05) best = i;
     return best;
   }
 
@@ -248,25 +230,17 @@
       const li = document.createElement('li');
       li.className = 'track';
       li.dataset.idx = i;
-      const marked = !times[i].estimated;
-      if (marked) li.classList.add('marked');
-      const userMark = i in (state.marks[ep.slug] || {});
       li.innerHTML = `
         <span class="track-idx mono">${i + 1}</span>
         <div class="track-main">
           <div class="track-title">${esc(tr.title)}</div>
           ${tr.artist ? `<div class="track-artist">${esc(tr.artist)}</div>` : ''}
         </div>
-        <span class="track-time mono${marked ? '' : ' est'}" title="${marked ? 'Start time' : 'Estimated. Press mark when the track starts to set it.'}">${marked ? '' : '~'}${fmtTime(times[i].time)}</span>
-        <span class="track-actions">
-          <button class="text-btn act-mark" title="Set this track's start to the current time">${marked ? 'set here' : 'mark'}</button>
-          ${userMark ? '<button class="text-btn danger act-unmark" title="Remove this mark">×</button>' : ''}
-        </span>`;
+        <span class="track-time mono" title="Approximate start">${fmtTime(times[i])}</span>`;
       frag.appendChild(li);
     });
     el.tracks.appendChild(frag);
     updateNowTrack(true);
-    renderSeekMarks();
   }
 
   function updateNowTrack(force = false) {
@@ -281,42 +255,6 @@
     if (idx >= 0) el.tracks.querySelector(`.track[data-idx="${idx}"]`)?.classList.add('now');
   }
 
-  function renderSeekMarks() {
-    el.seekMarks.textContent = '';
-    const ep = bySlug.get(playing);
-    if (!ep || !ep.duration) return;
-    const marks = state.marks[ep.slug] || {};
-    for (const sec of Object.values(marks)) {
-      const i = document.createElement('i');
-      i.style.left = `${clamp(sec / ep.duration * 100, 0, 100)}%`;
-      el.seekMarks.appendChild(i);
-    }
-  }
-
-  function setMark(slug, idx, sec) {
-    if (!state.marks[slug]) state.marks[slug] = {};
-    state.marks[slug][idx] = Math.round(sec * 10) / 10;
-    saveStateSoon(0);
-    if (slug === selected) renderTracks();
-    const ep = bySlug.get(slug);
-    toast(`Track ${idx + 1} starts at ${fmtTime(sec)}: ${ep.tracks[idx].title}`);
-  }
-  function unsetMark(slug, idx) {
-    if (state.marks[slug]) delete state.marks[slug][idx];
-    if (state.marks[slug] && !Object.keys(state.marks[slug]).length) delete state.marks[slug];
-    saveStateSoon(0);
-    if (slug === selected) renderTracks();
-  }
-  // Enter key: the first track that has no mark yet gets the current time.
-  function markNext() {
-    const ep = bySlug.get(playing);
-    if (!ep) return;
-    const have = state.marks[ep.slug] || {};
-    for (let i = 1; i < ep.tracks.length; i++) {
-      if (!(i in have)) { setMark(ep.slug, i, audio.currentTime); return; }
-    }
-    toast('Every track is already marked');
-  }
   // Previous / next track, like a playlist. Past the last track it rolls into the
   // next episode. "Previous" restarts the current track unless it just began.
   function stepTrack(dir) {
@@ -324,7 +262,7 @@
     const times = trackTimes(playing);
     const t = currentTime();
     const cur = Math.max(0, trackAt(playing, t));
-    let target = dir > 0 ? cur + 1 : (t - times[cur].time > 3 ? cur : cur - 1);
+    let target = dir > 0 ? cur + 1 : (t - times[cur] > 3 ? cur : cur - 1);
     if (target >= times.length) {
       const next = neighbour(1);
       if (!next) { toast('Last track of the oldest episode'); return; }
@@ -333,7 +271,7 @@
       return;
     }
     if (target < 0) target = 0;
-    play(playing, { startAt: times[target].time });
+    play(playing, { startAt: times[target] });
   }
 
   // ---------- playback ----------
@@ -357,7 +295,6 @@
     el.barTitle.textContent = `${ep.number}: ${ep.artist}`;
     el.barSub.textContent = ep.durationText;
     setMediaSession(ep);
-    renderSeekMarks();
     updateTimes();
     updateNowTrack(true);
     updateDetailButtons();
@@ -472,8 +409,7 @@
     // Now playing track under the bar
     if (ep) {
       const idx = trackAt(ep.slug, t);
-      const est = idx >= 0 && trackTimes(ep.slug)[idx].estimated ? '~ ' : '';
-      el.barSub.textContent = idx >= 0 ? `${est}${idx + 1}. ${ep.tracks[idx].line}` : ep.durationText;
+      el.barSub.textContent = idx >= 0 ? `${idx + 1}. ${ep.tracks[idx].line}` : ep.durationText;
     }
   }
 
@@ -825,14 +761,8 @@
     const row = e.target.closest('.track');
     if (!row) return;
     const idx = Number(row.dataset.idx);
-    if (e.target.closest('.act-mark')) {
-      if (playing !== selected) { toast('Play this episode first, then mark tracks as they start'); return; }
-      setMark(selected, idx, audio.currentTime);
-      return;
-    }
-    if (e.target.closest('.act-unmark')) { unsetMark(selected, idx); return; }
     const times = trackTimes(selected);
-    if (times[idx]) play(selected, { startAt: times[idx].time });
+    if (times[idx] != null) play(selected, { startAt: times[idx] });
   });
 
   el.playBtn.addEventListener('click', togglePlay);
@@ -901,7 +831,7 @@
   audio.addEventListener('loadstart', () => { if (!audio.paused) el.playBtn.classList.add('loading'); });
   audio.addEventListener('canplay', () => el.playBtn.classList.remove('loading'));
   audio.addEventListener('timeupdate', () => { updateTimes(); updateNowTrack(); rememberPosition(); updatePositionState(); });
-  audio.addEventListener('durationchange', () => { updateTimes(); renderSeekMarks(); });
+  audio.addEventListener('durationchange', updateTimes);
   audio.addEventListener('progress', updateTimes);
   audio.addEventListener('seeked', () => { updateTimes(); updateNowTrack(true); rememberPosition(true); });
   audio.addEventListener('ratechange', updatePositionState);
@@ -934,7 +864,6 @@
     else if (k === 'p') { handled(); stepEpisode(-1); }
     else if (k === '[') { handled(); stepTrack(-1); }
     else if (k === ']') { handled(); stepTrack(1); }
-    else if (k === 'Enter') { if (playing) { handled(); markNext(); } }
     else if (k === '/') { handled(); el.filter.focus(); el.filter.select(); }
     else if (k === 't') { handled(); cycleTheme(); }
     else if (k === 'v') { handled(); setVizOn(!vizOn); }
@@ -960,7 +889,7 @@
 
     try {
       const [data, st] = await Promise.all([loadCatalog(), getJSON('/api/state')]);
-      state = { lastSlug: null, positions: {}, finished: {}, marks: {}, ...st };
+      state = { lastSlug: null, positions: {}, finished: {}, ...st };
       renderList();
       const start = (state.lastSlug && bySlug.get(state.lastSlug)) ? state.lastSlug : data.episodes[0]?.slug;
       if (start) {

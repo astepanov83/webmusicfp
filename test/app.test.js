@@ -95,13 +95,12 @@ test('PUT /api/state stores state, GET reads it back', async () => {
     const put = await fetch(base + '/api/state', {
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ lastSlug: 'one', positions: { one: 99 }, marks: { one: { 2: 120 } }, junk: 1 }),
+      body: JSON.stringify({ lastSlug: 'one', positions: { one: 99 }, junk: 1 }),
     });
     assert.equal(put.status, 200);
     const got = await (await fetch(base + '/api/state')).json();
     assert.equal(got.lastSlug, 'one');
     assert.equal(got.positions.one, 99);
-    assert.equal(got.marks.one[2], 120);
     assert.equal(got.junk, undefined);
     const bad = await fetch(base + '/api/state', { method: 'PUT', body: '{nope' });
     assert.equal(bad.status, 400);
