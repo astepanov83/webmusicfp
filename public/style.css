@@ -262,7 +262,8 @@ kbd {
   padding: 7px 8px; border-radius: 8px; min-height: 40px;
 }
 .track:hover { background: var(--card); }
-.track.marked { cursor: pointer; }
+.track { cursor: pointer; }
+.track-time.est { color: var(--fg-3); }
 .track.now { background: var(--accent-soft); }
 .track.now .track-idx { color: var(--accent); }
 .track-idx { color: var(--fg-3); font-size: 12px; text-align: right; }

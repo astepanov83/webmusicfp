@@ -57,13 +57,18 @@ journalctl --user -u webmusicfp -f
 Audio goes straight from the browser to the mp3 host. The server only hands out
 URLs and metadata.
 
-## Track marks
+## Tracks
 
-The site does not publish timestamps for the tracks in a mix. So the player lets
-you set them: while an episode plays, press `mark` on a track when it starts,
-or hit `enter` to stamp the next unmarked track with the current time. Marked
-tracks show their time, become clickable, appear as ticks on the seek bar, and
-the one that is playing is highlighted. `[` and `]` jump between marks.
+The tracklist works like a playlist: click a track to jump to it, and the
+prev/next buttons (or `[` and `]`) step through tracks. After the last track
+the player rolls into the next episode.
+
+The site does not publish timestamps, so the player estimates them: track 1
+starts at 0:00, the end of the file is the last anchor, and tracks in between
+are spread evenly. Estimated times show with a `~`. To make them exact, press
+`mark` on a track when it starts, or hit `enter` to stamp the next unmarked
+track with the current time. Each mark sharpens the estimates around it.
+Marked tracks appear as ticks on the seek bar.
 
 ## Visualizer
 
@@ -81,7 +86,7 @@ quieter than a radio stream. Toggle it with the bars icon or `v`.
 | `shift`+`←` `→`         | Back / forward 5 min                       |
 | `j` `l`                 | Back / forward 1 min                       |
 | `0` … `9`               | Jump to 0% … 90%                           |
-| `[` `]`                 | Previous / next marked track               |
+| `[` `]`                 | Previous / next track                      |
 | `enter`                 | Mark the next unmarked track at this time  |
 | `p` `n`                 | Previous / next episode                    |
 | `↑` `↓`, `m`            | Volume, mute                               |

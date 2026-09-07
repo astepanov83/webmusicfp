@@ -87,20 +87,36 @@
 
   function positionOf(slug) { return state.positions[slug] || 0; }
   function isFinished(slug) { return !!state.finished[slug]; }
-  // Track 0 always starts at 0:00 unless the user marked it elsewhere.
-  function marksOf(slug) {
-    const m = { 0: 0, ...(state.marks[slug] || {}) };
-    return m;
-  }
-  function markedIndexes(slug) {
-    return Object.keys(marksOf(slug)).map(Number).sort((a, b) => marksOf(slug)[a] - marksOf(slug)[b]);
+  // A start time for every track. Anchors are: track 1 at 0:00, the user's marks,
+  // and the end of the file. Tracks between anchors are spread evenly and flagged
+  // as estimates. Each mark the user adds sharpens its neighbours.
+  function trackTimes(slug) {
+    const ep = bySlug.get(slug);
+    if (!ep) return [];
+    const n = ep.tracks.length;
+    const user = state.marks[slug] || {};
+    const dur = (playing === slug && audio.duration) || ep.duration || 0;
+    const anchors = [{ i: 0, t: user[0] ?? 0 }];
+    for (const [k, v] of Object.entries(user)) {
+      const i = Number(k);
+      if (i > 0 && i < n) anchors.push({ i, t: v });
+    }
+    anchors.sort((a, b) => a.i - b.i);
+    anchors.push({ i: n, t: dur });
+    const out = new Array(n);
+    for (let a = 0; a < anchors.length - 1; a++) {
+      const A = anchors[a], B = anchors[a + 1];
+      const span = B.i - A.i;
+      for (let i = A.i; i < B.i; i++) {
+        out[i] = { time: Math.max(A.t, A.t + (B.t - A.t) * (i - A.i) / span), estimated: i !== A.i };
+      }
+    }
+    return out;
   }
   function trackAt(slug, t) {
-    const marks = marksOf(slug);
-    let best = -1, bestT = -1;
-    for (const [i, sec] of Object.entries(marks)) {
-      if (sec <= t + 0.05 && sec >= bestT) { bestT = sec; best = Number(i); }
-    }
+    const times = trackTimes(slug);
+    let best = -1;
+    for (let i = 0; i < times.length; i++) if (times[i].time <= t + 0.05) best = i;
     return best;
   }
 
@@ -226,13 +242,13 @@
     const ep = bySlug.get(selected);
     el.tracks.textContent = '';
     if (!ep) return;
-    const marks = marksOf(ep.slug);
+    const times = trackTimes(ep.slug);
     const frag = document.createDocumentFragment();
     ep.tracks.forEach((tr, i) => {
       const li = document.createElement('li');
       li.className = 'track';
       li.dataset.idx = i;
-      const marked = i in marks;
+      const marked = !times[i].estimated;
       if (marked) li.classList.add('marked');
       const userMark = i in (state.marks[ep.slug] || {});
       li.innerHTML = `
@@ -241,7 +257,7 @@
           <div class="track-title">${esc(tr.title)}</div>
           ${tr.artist ? `<div class="track-artist">${esc(tr.artist)}</div>` : ''}
         </div>
-        <span class="track-time mono">${marked ? fmtTime(marks[i]) : ''}</span>
+        <span class="track-time mono${marked ? '' : ' est'}" title="${marked ? 'Start time' : 'Estimated. Press mark when the track starts to set it.'}">${marked ? '' : '~'}${fmtTime(times[i].time)}</span>
         <span class="track-actions">
           <button class="text-btn act-mark" title="Set this track's start to the current time">${marked ? 'set here' : 'mark'}</button>
           ${userMark ? '<button class="text-btn danger act-unmark" title="Remove this mark">×</button>' : ''}
@@ -258,7 +274,7 @@
       el.tracks.querySelectorAll('.track.now').forEach((n) => n.classList.remove('now'));
       return;
     }
-    const idx = trackAt(playing, audio.currentTime);
+    const idx = trackAt(playing, currentTime());
     const cur = el.tracks.querySelector('.track.now');
     if (!force && cur && Number(cur.dataset.idx) === idx) return;
     cur?.classList.remove('now');
@@ -301,17 +317,23 @@
     }
     toast('Every track is already marked');
   }
-  function jumpMark(dir) {
-    const ep = bySlug.get(playing);
-    if (!ep) return;
-    const marks = marksOf(ep.slug);
-    const times = Object.values(marks).sort((a, b) => a - b);
-    const t = audio.currentTime;
-    let target;
-    if (dir > 0) target = times.find((x) => x > t + 1);
-    else { const before = times.filter((x) => x < t - 3); target = before.length ? before[before.length - 1] : 0; }
-    if (target == null) { toast('No later mark'); return; }
-    seekTo(target);
+  // Previous / next track, like a playlist. Past the last track it rolls into the
+  // next episode. "Previous" restarts the current track unless it just began.
+  function stepTrack(dir) {
+    if (!playing) { if (selected) play(selected); return; }
+    const times = trackTimes(playing);
+    const t = currentTime();
+    const cur = Math.max(0, trackAt(playing, t));
+    let target = dir > 0 ? cur + 1 : (t - times[cur].time > 3 ? cur : cur - 1);
+    if (target >= times.length) {
+      const next = neighbour(1);
+      if (!next) { toast('Last track of the oldest episode'); return; }
+      select(next, { scroll: true });
+      play(next, { startAt: 0 });
+      return;
+    }
+    if (target < 0) target = 0;
+    play(playing, { startAt: times[target].time });
   }
 
   // ---------- playback ----------
@@ -324,13 +346,12 @@
     state.lastSlug = slug;
     prevRow?.classList.remove('playing');
     rowOf(slug)?.classList.add('playing');
+    pendingSeek = null;
     audio.src = ep.url;
     const start = startAt != null ? startAt : positionOf(slug);
     lastSavedPos = start;
-    if (start > 0) {
-      const apply = () => { audio.currentTime = start; };
-      audio.addEventListener('loadedmetadata', apply, { once: true });
-    }
+    if (start > 0) pendingSeek = start; // applied when metadata arrives
+    updateTimes();
     document.title = `${ep.number} ${ep.artist} - MFP`;
     el.barArt.textContent = pad2(ep.number);
     el.barTitle.textContent = `${ep.number}: ${ep.artist}`;
@@ -344,9 +365,22 @@
     return true;
   }
 
+  // Before metadata has loaded the element cannot seek, so remember the wish and
+  // apply it on loadedmetadata. A later request replaces an earlier one.
+  let pendingSeek = null;
+  function requestSeek(t) {
+    if (audio.readyState >= 1) { audio.currentTime = t; pendingSeek = null; }
+    else pendingSeek = t;
+    updateTimes();
+  }
+  function currentTime() { return pendingSeek != null ? pendingSeek : (audio.currentTime || 0); }
+  audio.addEventListener('loadedmetadata', () => {
+    if (pendingSeek != null) { audio.currentTime = pendingSeek; pendingSeek = null; }
+  });
+
   async function play(slug, opts) {
     if (slug && slug !== playing) load(slug, opts);
-    else if (slug && opts && opts.startAt != null) audio.currentTime = opts.startAt;
+    else if (slug && opts && opts.startAt != null) requestSeek(opts.startAt);
     if (!playing) return;
     ensureAudioGraph();
     try {
@@ -366,10 +400,9 @@
   function seekTo(t) {
     if (!playing) return;
     const d = audio.duration || bySlug.get(playing)?.duration || 0;
-    audio.currentTime = clamp(t, 0, d ? d - 0.5 : t);
-    updateTimes();
+    requestSeek(clamp(t, 0, d ? d - 0.5 : t));
   }
-  function seekBy(dt) { seekTo(audio.currentTime + dt); }
+  function seekBy(dt) { seekTo(currentTime() + dt); }
 
   function neighbour(dir) {
     const base = playing || selected;
@@ -419,7 +452,7 @@
   function updateTimes() {
     const ep = bySlug.get(playing);
     const d = audio.duration || ep?.duration || 0;
-    const t = audio.currentTime || 0;
+    const t = currentTime();
     el.tElapsed.textContent = fmtTime(t);
     el.tRemaining.textContent = showTotal ? fmtTime(d) : `-${fmtTime(Math.max(0, d - t))}`;
     const pct = d ? t / d : 0;
@@ -439,7 +472,8 @@
     // Now playing track under the bar
     if (ep) {
       const idx = trackAt(ep.slug, t);
-      el.barSub.textContent = idx >= 0 ? `${idx + 1}. ${ep.tracks[idx].line}` : ep.durationText;
+      const est = idx >= 0 && trackTimes(ep.slug)[idx].estimated ? '~ ' : '';
+      el.barSub.textContent = idx >= 0 ? `${est}${idx + 1}. ${ep.tracks[idx].line}` : ep.durationText;
     }
   }
 
@@ -457,8 +491,8 @@
     h('pause', () => audio.pause());
     h('seekbackward', (e) => seekBy(-(e.seekOffset || 10)));
     h('seekforward', (e) => seekBy(e.seekOffset || 30));
-    h('previoustrack', () => stepEpisode(-1));
-    h('nexttrack', () => stepEpisode(1));
+    h('previoustrack', () => stepTrack(-1));
+    h('nexttrack', () => stepTrack(1));
     h('seekto', (e) => { if (e.seekTime != null) seekTo(e.seekTime); });
   }
   function updatePositionState() {
@@ -797,13 +831,13 @@
       return;
     }
     if (e.target.closest('.act-unmark')) { unsetMark(selected, idx); return; }
-    const marks = marksOf(selected);
-    if (idx in marks) play(selected, { startAt: marks[idx] });
+    const times = trackTimes(selected);
+    if (times[idx]) play(selected, { startAt: times[idx].time });
   });
 
   el.playBtn.addEventListener('click', togglePlay);
-  el.prevBtn.addEventListener('click', () => stepEpisode(-1));
-  el.nextBtn.addEventListener('click', () => stepEpisode(1));
+  el.prevBtn.addEventListener('click', () => stepTrack(-1));
+  el.nextBtn.addEventListener('click', () => stepTrack(1));
   el.back10.addEventListener('click', () => seekBy(-10));
   el.fwd30.addEventListener('click', () => seekBy(30));
   el.tRemaining.addEventListener('click', () => { showTotal = !showTotal; prefs.set('showTotal', showTotal); updateTimes(); });
@@ -898,8 +932,8 @@
     else if (k === 'm') { handled(); el.muteBtn.click(); }
     else if (k === 'n') { handled(); stepEpisode(1); }
     else if (k === 'p') { handled(); stepEpisode(-1); }
-    else if (k === '[') { handled(); jumpMark(-1); }
-    else if (k === ']') { handled(); jumpMark(1); }
+    else if (k === '[') { handled(); stepTrack(-1); }
+    else if (k === ']') { handled(); stepTrack(1); }
     else if (k === 'Enter') { if (playing) { handled(); markNext(); } }
     else if (k === '/') { handled(); el.filter.focus(); el.filter.select(); }
     else if (k === 't') { handled(); cycleTheme(); }
