@@ -1,0 +1,9 @@
+{
+  "name": "Music For Programming",
+  "short_name": "MFP",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0c0f0e",
+  "theme_color": "#0c0f0e",
+  "icons": [{ "src": "favicon.svg", "sizes": "any", "type": "image/svg+xml" }]
+}
