@@ -78,7 +78,7 @@ quieter than a radio stream. Toggle it with the bars icon or `v`.
 | Key                     | Action                                     |
 | ----------------------- | ------------------------------------------ |
 | `space`, `k`            | Play / pause                               |
-| `←` `→`                 | Back 10 s / forward 30 s                   |
+| `←` `→`                 | Back / forward 10 s                        |
 | `shift`+`←` `→`         | Back / forward 5 min                       |
 | `j` `l`                 | Back / forward 1 min                       |
 | `0` … `9`               | Jump to 0% … 90%                           |

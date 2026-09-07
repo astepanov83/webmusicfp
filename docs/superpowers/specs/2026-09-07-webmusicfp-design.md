@@ -49,7 +49,7 @@ Plain HTML, CSS and JS in `public/`. Layout:
 - Left pane: episode list with a filter box. Each row shows number, artist,
   duration, and a progress indicator (unplayed, partly played, finished).
 - Right pane: the selected episode with its tracklist and links.
-- Bottom bar: previous/next track, skip back 10s and forward 30s, play/pause,
+- Bottom bar: previous/next track, skip back and forward 10s, play/pause,
   a next/random toggle for what plays after an episode, seek bar with buffered
   range and hover time, elapsed/remaining time, volume.
 

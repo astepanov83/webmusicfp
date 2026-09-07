@@ -10,7 +10,7 @@
     dPlay: $('dPlay'), dRestart: $('dRestart'), dFinished: $('dFinished'), dSite: $('dSite'), dFile: $('dFile'), dLinks: $('dLinks'),
     dTrackCount: $('dTrackCount'), tracks: $('tracks'),
     barArt: $('barArt'), barTitle: $('barTitle'), barSub: $('barSub'),
-    prevBtn: $('prevBtn'), nextBtn: $('nextBtn'), back10: $('back10'), fwd30: $('fwd30'), playBtn: $('playBtn'),
+    prevBtn: $('prevBtn'), nextBtn: $('nextBtn'), back10: $('back10'), fwd10: $('fwd10'), playBtn: $('playBtn'),
     tElapsed: $('tElapsed'), tRemaining: $('tRemaining'), seek: $('seek'), seekTrack: $('seekTrack'), seekBuffered: $('seekBuffered'),
     seekPlayed: $('seekPlayed'), seekThumb: $('seekThumb'), seekTip: $('seekTip'),
     continueBtn: $('continueBtn'), muteBtn: $('muteBtn'), volume: $('volume'),
@@ -416,7 +416,7 @@
     h('play', () => play());
     h('pause', () => audio.pause());
     h('seekbackward', (e) => seekBy(-(e.seekOffset || 10)));
-    h('seekforward', (e) => seekBy(e.seekOffset || 30));
+    h('seekforward', (e) => seekBy(e.seekOffset || 10));
     h('previoustrack', () => stepTrack(-1));
     h('nexttrack', () => stepTrack(1));
     h('seekto', (e) => { if (e.seekTime != null) seekTo(e.seekTime); });
@@ -710,7 +710,7 @@
   el.prevBtn.addEventListener('click', () => stepTrack(-1));
   el.nextBtn.addEventListener('click', () => stepTrack(1));
   el.back10.addEventListener('click', () => seekBy(-10));
-  el.fwd30.addEventListener('click', () => seekBy(30));
+  el.fwd10.addEventListener('click', () => seekBy(10));
   el.tRemaining.addEventListener('click', () => { showTotal = !showTotal; prefs.set('showTotal', showTotal); updateTimes(); });
   el.backBtn.addEventListener('click', () => el.app.classList.remove('show-detail'));
   el.barArt.addEventListener('click', () => { if (playing) select(playing, { scroll: true }); });
@@ -803,7 +803,7 @@
     const handled = () => e.preventDefault();
     if (k === ' ' || k === 'k') { handled(); togglePlay(); }
     else if (k === 'ArrowLeft') { handled(); seekBy(e.shiftKey ? -300 : -10); }
-    else if (k === 'ArrowRight') { handled(); seekBy(e.shiftKey ? 300 : 30); }
+    else if (k === 'ArrowRight') { handled(); seekBy(e.shiftKey ? 300 : 10); }
     else if (k === 'j') { handled(); seekBy(-60); }
     else if (k === 'l') { handled(); seekBy(60); }
     else if (k === 'ArrowUp') { handled(); nudgeVolume(5); }
