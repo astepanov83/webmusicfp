@@ -150,7 +150,8 @@
     const row = rowOf(slug);
     const ep = bySlug.get(slug);
     if (!row || !ep) return;
-    const pos = positionOf(slug);
+    // The playing episode shows the live time; others show their saved position.
+    const pos = slug === playing ? currentTime() : positionOf(slug);
     const fin = isFinished(slug);
     row.classList.toggle('finished', fin);
     row.querySelector('.ep-progress > i').style.width = ep.duration ? `${clamp(pos / ep.duration * 100, 0, 100)}%` : '0';
@@ -779,7 +780,7 @@
   audio.addEventListener('waiting', () => el.playBtn.classList.add('loading'));
   audio.addEventListener('loadstart', () => { if (!audio.paused) el.playBtn.classList.add('loading'); });
   audio.addEventListener('canplay', () => el.playBtn.classList.remove('loading'));
-  audio.addEventListener('timeupdate', () => { updateTimes(); updateNowTrack(); rememberPosition(); updatePositionState(); });
+  audio.addEventListener('timeupdate', () => { updateTimes(); updateNowTrack(); rememberPosition(); updateRowProgress(playing); updatePositionState(); });
   audio.addEventListener('durationchange', updateTimes);
   audio.addEventListener('progress', updateTimes);
   audio.addEventListener('seeked', () => { updateTimes(); updateNowTrack(true); rememberPosition(true); });
