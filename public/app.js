@@ -850,13 +850,14 @@
   // - It never calls audio.play() or audioCtx.resume() on its own. Every call
   //   comes from a click, a key, a media session action, or the deliberate
   //   move to the next episode when one ends (onEnded).
-  // - A pause that did not come from the app stays a pause. If the browser
-  //   starts the element again afterwards, the app pauses it at once. The
-  //   user, or the play button on the lock screen, resumes.
+  // - A pause that did not come from the app stays a pause: no timer or
+  //   retry in the app restarts it. When the browser itself resumes the
+  //   element after the call (Android gives audio focus back), that resume
+  //   is accepted, the same way native players carry on after a call.
   // - If the AudioContext is interrupted or suspended while the element plays,
   //   the element is paused too (see ensureAudioGraph).
   audio.addEventListener('play', () => {
-    if (!wantPlay) { audio.pause(); return; }
+    wantPlay = true; // a resume from the browser after a call counts as wanted
     setPlaybackState('playing');
     updatePlayButton();
   });

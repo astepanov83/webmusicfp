@@ -392,6 +392,8 @@ input[type="range"]:not(#seek)::-moz-range-thumb {
 /* Narrow screens (phones): one pane at a time, picked with the tabs under the
    header. The bar becomes three rows: now playing, seek, transport. */
 @media (max-width: 820px) {
+  /* Let the pull-down gesture reach the browser so pull-to-refresh works. */
+  body { overflow: auto; }
   .app {
     grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto minmax(0, 1fr) auto;
     grid-template-areas: "top" "views" "main" "bar";
