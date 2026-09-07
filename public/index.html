@@ -2,7 +2,7 @@
 <html lang="en" data-theme="dark">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="color-scheme" content="dark light">
   <meta name="theme-color" content="#0c0f0e">
   <title>Music For Programming</title>
@@ -36,6 +36,12 @@
       </div>
     </header>
 
+    <!-- Narrow screens only: switches between the list and the episode pane -->
+    <nav class="views" id="views" aria-label="View">
+      <button class="view-tab" id="tabList" aria-pressed="true">Episodes</button>
+      <button class="view-tab" id="tabEpisode" aria-pressed="false">Episode</button>
+    </nav>
+
     <aside class="episodes">
       <div class="filter">
         <input type="search" id="filter" placeholder="Filter episodes, artists, tracks  ( / )" autocomplete="off" spellcheck="false">
@@ -48,7 +54,6 @@
     <main class="detail" id="detail">
       <div class="detail-empty" id="detailEmpty">Pick an episode on the left.</div>
       <div class="detail-body" id="detailBody" hidden>
-        <button class="text-btn back-btn" id="backBtn">‹ Episodes</button>
         <div class="detail-head">
           <div class="detail-text">
           <div class="detail-number" id="dNumber"></div>

@@ -6,7 +6,8 @@
   const el = {
     app: $('app'), catalogInfo: $('catalogInfo'), themeToggle: $('themeToggle'), helpBtn: $('helpBtn'), help: $('help'),
     filter: $('filter'), filterCount: $('filterCount'), list: $('episodeList'), listEmpty: $('listEmpty'),
-    detail: $('detail'), backBtn: $('backBtn'), detailEmpty: $('detailEmpty'), detailBody: $('detailBody'), dNumber: $('dNumber'), dTitle: $('dTitle'), dMeta: $('dMeta'),
+    views: $('views'), tabList: $('tabList'), tabEpisode: $('tabEpisode'),
+    detail: $('detail'), detailEmpty: $('detailEmpty'), detailBody: $('detailBody'), dNumber: $('dNumber'), dTitle: $('dTitle'), dMeta: $('dMeta'),
     dPlay: $('dPlay'), dRestart: $('dRestart'), dFinished: $('dFinished'), dSite: $('dSite'), dFile: $('dFile'), dLinks: $('dLinks'),
     dTrackCount: $('dTrackCount'), tracks: $('tracks'),
     barArt: $('barArt'), barTitle: $('barTitle'), barSub: $('barSub'),
@@ -132,9 +133,10 @@
         ? `<div class="ep-hint">track: <b>${esc(m.track.line)}</b></div>`
         : `<div class="ep-hint">${esc(fmtDate(ep.date))}</div>`;
       li.innerHTML = `
-        <div class="ep-num mono">${pad2(ep.number)}<button class="ep-play" title="Play episode ${ep.number}" tabindex="-1"><svg viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z" fill="currentColor"/></svg></button></div>
+        <div class="ep-num mono">${pad2(ep.number)}</div>
         <div class="ep-main"><div class="ep-artist">${esc(ep.artist)}</div>${hint}</div>
         <div class="ep-side"><span class="ep-dur mono">${esc(ep.durationText)}</span><span class="ep-flag"></span></div>
+        <button class="ep-play" title="Play episode ${ep.number}" tabindex="-1"><svg viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z" fill="currentColor"/></svg></button>
         <div class="ep-progress"><i></i></div>`;
       frag.appendChild(li);
     }
@@ -173,8 +175,20 @@
     const row = rowOf(slug);
     row?.classList.add('selected');
     if (scroll && row) row.scrollIntoView({ block: 'nearest' });
-    el.app.classList.add('show-detail');
     renderDetail();
+  }
+
+  // Narrow screens show one pane at a time: 'list' or 'episode'. The tabs under
+  // the header switch. Wide screens ignore the classes and show both panes.
+  function setView(v) {
+    const episode = v === 'episode';
+    el.app.classList.toggle('view-episode', episode);
+    el.app.classList.toggle('view-list', !episode);
+    el.tabList.setAttribute('aria-pressed', String(!episode));
+    el.tabEpisode.setAttribute('aria-pressed', String(episode));
+    // The canvas has no size while its pane is hidden, so size it again now.
+    resizeCanvas();
+    updateStage();
   }
 
   function renderDetail() {
@@ -672,6 +686,7 @@
     if (!row) return;
     if (e.target.closest('.ep-play')) { select(row.dataset.slug); play(row.dataset.slug); return; }
     select(row.dataset.slug);
+    setView('episode');
   });
   el.list.addEventListener('dblclick', (e) => {
     const row = e.target.closest('.ep');
@@ -680,7 +695,7 @@
   el.filter.addEventListener('input', () => { filterText = el.filter.value; renderList(); });
   el.filter.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') { el.filter.value = ''; filterText = ''; renderList(); el.filter.blur(); }
-    if (e.key === 'Enter') { const first = el.list.querySelector('.ep'); if (first) { select(first.dataset.slug); el.filter.blur(); } }
+    if (e.key === 'Enter') { const first = el.list.querySelector('.ep'); if (first) { select(first.dataset.slug); setView('episode'); el.filter.blur(); } }
   });
 
   el.dPlay.addEventListener('click', () => {
@@ -713,8 +728,9 @@
   el.back10.addEventListener('click', () => seekBy(-10));
   el.fwd10.addEventListener('click', () => seekBy(10));
   el.tRemaining.addEventListener('click', () => { showTotal = !showTotal; prefs.set('showTotal', showTotal); updateTimes(); });
-  el.backBtn.addEventListener('click', () => el.app.classList.remove('show-detail'));
-  el.barArt.addEventListener('click', () => { if (playing) select(playing, { scroll: true }); });
+  el.tabList.addEventListener('click', () => setView('list'));
+  el.tabEpisode.addEventListener('click', () => setView('episode'));
+  el.barArt.addEventListener('click', () => { if (playing) select(playing, { scroll: true }); setView('episode'); });
 
   // Seek bar: drag shows the target time, release applies it.
   function seekPct() { return Number(el.seek.value) / 1000; }
@@ -835,6 +851,7 @@
     setContinueMode(prefs.get('continue', 'next'));
     showTotal = prefs.get('showTotal', false);
     setVizOn(vizOn);
+    setView('list');
 
     try {
       const data = await loadCatalog();

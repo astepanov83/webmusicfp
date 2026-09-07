@@ -57,6 +57,12 @@ journalctl --user -u webmusicfp-refresh -f
 
 Audio goes straight from the browser to the mp3 host.
 
+On a phone the page shows one pane at a time. Two tabs under the header,
+"Episodes" and "Episode", switch between the list and the episode pane.
+Tapping an episode row opens it; the play icon on a row plays it without
+leaving the list. The bar keeps the transport buttons and mute; the volume
+slider is hidden since phones have hardware volume keys.
+
 ## Tracks
 
 The tracklist works like a playlist: click a track to jump to it, and the
